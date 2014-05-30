@@ -85,8 +85,12 @@ table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft]
              = Infix (do{ string s; return f}) assoc
 
 parseFactor :: Parser CVal
-parseFactor = parens parseExpr
-              <|> parseVar
+parseFactor = do
+    whiteSpace
+    f <- parens parseExpr
+         <|> parseVar
+    whiteSpace
+    return f
 		
 parseStatement :: Parser CVal
 parseStatement = do 
