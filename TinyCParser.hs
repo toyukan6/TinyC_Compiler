@@ -61,42 +61,84 @@ data CVal = Atom String
 	  | Number Integer
 	  | Variation String
 	  | NullExp ()
-	  | Add CVal CVal
-	  | Sub CVal CVal
-	  | Mul CVal CVal
-	  | Div CVal CVal
-	  | Mod CVal CVal
+	  | List [CVal]
+	  | CalFunc String [CVal]
+	  | Expression String CVal CVal
+	  | CompoundStatement [CVal] [CVal]
 
 showVal :: CVal -> String
 showVal (Atom name) = name
 showVal (Variation name) = name
 showVal (NullExp _) = ""
 showVal (Number n) = show n
-showVal (Add n1 n2) = "(+ " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
-showVal (Sub n1 n2) = "(- " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
-showVal (Mul n1 n2) = "(* " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
-showVal (Div n1 n2) = "(/ " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
-showVal (Mod n1 n2) = "(% " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
+showVal (List l) = unwords . map show $ l
+showVal (Expression op n1 n2) = "(" ++ op ++ " " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
+showVal (CompoundStatement var exp) = "((" ++ unwords (map show var) ++ ")(" ++ unwords (map show exp) ++ "))"
 
 instance Show CVal where show = showVal
 
-parseAddExpr    :: Parser CVal
-parseAddExpr    = buildExpressionParser table parseFactor
+parseLogicalORExpr    :: Parser CVal
+parseLogicalORExpr    = buildExpressionParser table parseFactor
 
-table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft, op "%" Mod AssocLeft]
-          ,[op "+" Add AssocLeft, op "-" Sub AssocLeft]
+table   = [[op "*" (Expression "*") AssocLeft, op "/" (Expression "/") AssocLeft, op "%" (Expression "%") AssocLeft]
+          ,[op "+" (Expression "+") AssocLeft, op "-" (Expression "-") AssocLeft]
+          ,[op "<" (Expression "<") AssocLeft, op ">" (Expression ">") AssocLeft, op "<=" (Expression "<=") AssocLeft, op ">=" (Expression ">=") AssocLeft]
+          ,[op "==" (Expression "==") AssocLeft, op "!=" (Expression "!=") AssocLeft]
+          ,[op "&&" (Expression "&&") AssocLeft]
+	  ,[op "||" (Expression "||") AssocLeft]
           ]
         where
           op s f assoc
              = Infix (do{ string s; return f}) assoc
 
+parseExpression :: Parser [CVal]
+parseExpression = do
+    assign <- parseAssignExpr
+    ((:) assign <$> (whiteSpace *> comma *> whiteSpace *> parseExpression)) <|> pure (assign : [])
+
+parseAssignExpr :: Parser CVal
+parseAssignExpr = try parseLogicalORExpr
+                  <|> parseSubstitution
+
+parseSubstitution :: Parser CVal
+parseSubstitution = do
+    whiteSpace
+    i <- parseDeclarator
+    whiteSpace >> char '=' >> whiteSpace
+    r <- parseAssignExpr
+    return $ Expression "=" i r
+
+parsePostfixExpr :: Parser CVal
+parsePostfixExpr = try parseFactor
+                   <|> parseCalFunc
+
+parseCalFunc :: Parser CVal
+parseCalFunc = try (do
+    i <- identifier
+    whiteSpace >> char '('
+    ae <- parseArgumentExpressionList
+    whiteSpace >> char ')'
+    return $ CalFunc i ae)
+    <|> do i <- identifier
+           whiteSpace >> char '(' >> whiteSpace >> char ')' >> whiteSpace
+	   return $ CalFunc i []
+
+parseArgumentExpressionList :: Parser [CVal]
+parseArgumentExpressionList = do
+    whiteSpace
+    ae <- parseAssignExpr
+    ((:) ae <$> (whiteSpace *> comma *> whiteSpace *> parseArgumentExpressionList)) <|> pure (ae : [])
+
 parseFactor :: Parser CVal
 parseFactor = do
     whiteSpace
-    f <- parens parseAddExpr
-         <|> parseVar
+    f <- parseVar
     whiteSpace
     return f
+    <|> do whiteSpace
+           f <- try (parens parseExpression)
+           whiteSpace
+           return $ List f
 
 parseStatementList :: Parser [CVal]
 parseStatementList = do
@@ -105,11 +147,13 @@ parseStatementList = do
     
 parseStatement :: Parser CVal
 parseStatement =
-    do whiteSpace >> semi
-       return $ NullExp ()
-    <|> do exp <- parseAddExpr
-           whiteSpace >> semi
-           return exp
+    try (do whiteSpace >> semi
+            return (NullExp ()))
+    <|> try (do exp <- parseExpression
+                whiteSpace >> semi
+                return (List exp))
+    <|> try (do cs <- parseCompoundStatement
+		return cs)
 
 parseProgram :: Parser CVal
 parseProgram = do
@@ -130,7 +174,6 @@ parseParameterTypeList :: Parser [CVal]
 parseParameterTypeList = do
     p <- parseParameterDeclaration
     ((:) p <$> (whiteSpace *> comma *> whiteSpace *> parseParameterTypeList)) <|> pure (p : [])
-
     
 parseParameterDeclaration :: Parser CVal
 parseParameterDeclaration = do
@@ -162,20 +205,22 @@ parseDeclaratorList = do
     p <- parseDeclarator
     ((:) p <$> (whiteSpace *> comma *> whiteSpace *> parseDeclaratorList)) <|> pure (p : [])
 
-parseCompoundStatement :: Parser [CVal]
+parseCompoundStatement :: Parser CVal
 parseCompoundStatement =
     try (do whiteSpace
-            cs <- try (braces parseDeclarationList)
-                  <|> try (braces parseStatementList)
-            return cs)
+            cs <- braces parseDeclarationList
+            return (CompoundStatement cs []))
+    <|> try (do whiteSpace
+                cs <- braces parseStatementList
+                return (CompoundStatement [] cs))
     <|> try (do whiteSpace >> char '{' >> whiteSpace
                 dl <- try parseDeclarationList
                 whiteSpace
                 sl <- try parseStatementList
                 whiteSpace >> char '}'
-                return $ dl ++ sl)
+                return $ CompoundStatement dl sl)
     <|> do whiteSpace >> char '{' >> whiteSpace >> char '}'
-           return $ [NullExp ()]
+           return $ CompoundStatement [] []
 
 parseNumber :: Parser CVal
 parseNumber = liftM (Number . read) $ many1 digit
@@ -183,6 +228,6 @@ parseNumber = liftM (Number . read) $ many1 digit
 main :: IO ()
 main = do
    input <- getLine
-   print $ case parse parseCompoundStatement "TinyC" input of
+   print $ case parse parseStatement "TinyC" input of
       Left err -> show err
       Right val -> show val
