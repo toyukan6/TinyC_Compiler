@@ -2,8 +2,10 @@ module Main where
 import Control.Monad
 import System.Environment
 import Control.Monad.Error
+import Control.Applicative hiding ((<|>))
 import Data.IORef
 import Text.ParserCombinators.Parsec
+import Text.ParserCombinators.Parsec.Expr
 import qualified Text.ParserCombinators.Parsec.Token as Token
 import Text.ParserCombinators.Parsec.Language
 import GHC.IO.Handle
@@ -54,53 +56,67 @@ comma      :: Parser String
 comma      = Token.comma lexer
 
 data CVal = Atom String
-          | Integer Integer
 	  | Number Integer
 	  | Variation String
-	  | Expression {left :: CVal, op :: Char, right :: CVal}
+	  | Add CVal CVal
+	  | Sub CVal CVal
+	  | Mul CVal CVal
+	  | Div CVal CVal
 
---idnetifier :: Parser String
---identifier = do
---    c <- char '_' <|> letter
---    cs <- many (try (alphaNum) <|> try(OneOf "_$"))
---    return (c : cs)
-	  
-parseAdd :: Parser CVal
-parseAdd = do
-   x <- parseExpression
-   whiteSpace >> char '+' >> whiteSpace
-   y <- parseMul
-   return $ Expression x '+' y
+showVal :: CVal -> String
+showVal (Atom name) = name
+showVal (Variation name) = name
+showVal (Number n) = show n
+showVal (Add n1 n2) = "(+ " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
+showVal (Sub n1 n2) = "(- " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
+showVal (Mul n1 n2) = "(* " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
+showVal (Div n1 n2) = "(/ " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
 
-parseAddOrSub :: Parser CVal
-parseAddOrSub = do
-    whiteSpace
-    x <- try parseMul
-         <|> try parseAdd
-    return x
+instance Show CVal where show = showVal
 
-parseMul :: Parser CVal
-parseMul = do
-   x <- parseNumber
-   whiteSpace >> char '*' >> whiteSpace
-   y <- try parseMul
-        <|> parseNumber
-   return $ Expression x '*' y
-    
-parseExpression :: Parser CVal
-parseExpression = do
-    whiteSpace
-    exp <- parseAddOrSub
+parseExpr    :: Parser CVal
+parseExpr    = buildExpressionParser table parseFactor
+
+table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft]
+          ,[op "+" Add AssocLeft, op "-" Sub AssocLeft]
+          ]
+        where
+          op s f assoc
+             = Infix (do{ string s; return f}) assoc
+
+parseFactor :: Parser CVal
+parseFactor = parens parseExpr
+              <|> parseVar
+		
+parseStatement :: Parser CVal
+parseStatement = do 
+    exp <- parseExpr
     whiteSpace >> semi
     return exp
 
 parseProgram :: Parser CVal
 parseProgram = do
     whiteSpace
-    exp <- parseExpression
+    exp <- parseStatement
     whiteSpace
     return exp
 
+parseVar :: Parser CVal
+parseVar = do 
+    whiteSpace
+    n <- parseNumber
+         <|> parseDeclarator
+    whiteSpace
+    return n
+
+--parseDeclarationList :: Parser [CVal]
+--parseDeclarationList = do
+	    
+parseDeclarator :: Parser CVal
+parseDeclarator = do
+    v <- identifier
+    return $ Variation v
+        
 parseNumber :: Parser CVal
 parseNumber = liftM (Number . read) $ many1 digit
 
@@ -108,5 +124,5 @@ main :: IO ()
 main = do
    input <- getLine
    print $ case parse parseProgram "TinyC" input of
-      Left err -> "Error"
-      Right val -> "Succeed"
+      Left err -> show err
+      Right val -> show val
