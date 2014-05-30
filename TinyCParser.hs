@@ -80,8 +80,8 @@ showVal (Mod n1 n2) = "(% " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
 
 instance Show CVal where show = showVal
 
-parseExpr    :: Parser CVal
-parseExpr    = buildExpressionParser table parseFactor
+parseAddExpr    :: Parser CVal
+parseAddExpr    = buildExpressionParser table parseFactor
 
 table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft, op "%" Mod AssocLeft]
           ,[op "+" Add AssocLeft, op "-" Sub AssocLeft]
@@ -93,7 +93,7 @@ table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft, op "%" Mod AssocLeft]
 parseFactor :: Parser CVal
 parseFactor = do
     whiteSpace
-    f <- parens parseExpr
+    f <- parens parseAddExpr
          <|> parseVar
     whiteSpace
     return f
@@ -107,7 +107,7 @@ parseStatement :: Parser CVal
 parseStatement =
     do whiteSpace >> semi
        return $ NullExp ()
-    <|> do exp <- parseExpr
+    <|> do exp <- parseAddExpr
            whiteSpace >> semi
            return exp
 
@@ -126,6 +126,12 @@ parseVar = do
     whiteSpace
     return n
 
+parseParameterTypeList :: Parser [CVal]
+parseParameterTypeList = do
+    p <- parseParameterDeclaration
+    ((:) p <$> (whiteSpace *> comma *> whiteSpace *> parseParameterTypeList)) <|> pure (p : [])
+
+    
 parseParameterDeclaration :: Parser CVal
 parseParameterDeclaration = do
     whiteSpace
@@ -156,12 +162,27 @@ parseDeclaratorList = do
     p <- parseDeclarator
     ((:) p <$> (whiteSpace *> comma *> whiteSpace *> parseDeclaratorList)) <|> pure (p : [])
 
+parseCompoundStatement :: Parser [CVal]
+parseCompoundStatement =
+    do whiteSpace
+       cs <- try (braces parseDeclarationList)
+             <|> try (braces parseStatementList)
+       return cs
+    <|> try (do char '{' >> whiteSpace
+                dl <- try parseDeclarationList
+                whiteSpace
+                sl <- try parseStatementList
+                whiteSpace >> char '}'
+                return $ dl ++ sl)
+    <|> do char '{' >> whiteSpace >> char '}'
+           return $ [NullExp ()]
+
 parseNumber :: Parser CVal
 parseNumber = liftM (Number . read) $ many1 digit
 
 main :: IO ()
 main = do
    input <- getLine
-   print $ case parse parseStatementList "TinyC" input of
+   print $ case parse parseCompoundStatement "TinyC" input of
       Left err -> show err
       Right val -> show val
