@@ -54,6 +54,8 @@ semi       :: Parser String
 semi       = Token.semi lexer
 comma      :: Parser String
 comma      = Token.comma lexer
+spaces1 :: Parser ()
+spaces1 = skipMany1 space
 
 data CVal = Atom String
 	  | Number Integer
@@ -62,6 +64,7 @@ data CVal = Atom String
 	  | Sub CVal CVal
 	  | Mul CVal CVal
 	  | Div CVal CVal
+	  | Mod CVal CVal
 
 showVal :: CVal -> String
 showVal (Atom name) = name
@@ -71,13 +74,14 @@ showVal (Add n1 n2) = "(+ " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
 showVal (Sub n1 n2) = "(- " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
 showVal (Mul n1 n2) = "(* " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
 showVal (Div n1 n2) = "(/ " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
+showVal (Mod n1 n2) = "(% " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
 
 instance Show CVal where show = showVal
 
 parseExpr    :: Parser CVal
 parseExpr    = buildExpressionParser table parseFactor
 
-table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft]
+table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft, op "%" Mod AssocLeft]
           ,[op "+" Add AssocLeft, op "-" Sub AssocLeft]
           ]
         where
@@ -115,18 +119,43 @@ parseVar = do
 
 --parseDeclarationList :: Parser [CVal]
 --parseDeclarationList = do
-	    
+
+parseParameterDeclaration :: Parser CVal
+parseParameterDeclaration = do
+    whiteSpace
+    char 'i' >> char 'n' >> char 't' >> spaces1
+    p <- parseDeclarator
+    return p
+
+parseDeclarationList :: Parser [CVal]
+parseDeclarationList = do
+    d <- parseDeclaration
+    ((++) d <$> (whiteSpace *> parseDeclarationList)) <|> pure d
+    
+parseDeclaration :: Parser [CVal]
+parseDeclaration = do
+    char 'i' >> char 'n' >> char 't'
+    spaces1
+    pl <- parseDeclaratorList
+    whiteSpace >> semi
+    return pl
+    
 parseDeclarator :: Parser CVal
 parseDeclarator = do
     v <- identifier
     return $ Variation v
-        
+
+parseDeclaratorList :: Parser [CVal]
+parseDeclaratorList = do
+    p <- parseDeclarator
+    ((:) p <$> (whiteSpace *> comma *> whiteSpace *> parseDeclaratorList)) <|> pure (p : [])
+
 parseNumber :: Parser CVal
 parseNumber = liftM (Number . read) $ many1 digit
 
 main :: IO ()
 main = do
    input <- getLine
-   print $ case parse parseProgram "TinyC" input of
+   print $ case parse parseDeclarationList "TinyC" input of
       Left err -> show err
       Right val -> show val
