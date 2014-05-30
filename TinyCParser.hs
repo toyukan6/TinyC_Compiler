@@ -60,6 +60,7 @@ spaces1 = skipMany1 space
 data CVal = Atom String
 	  | Number Integer
 	  | Variation String
+	  | NullExp ()
 	  | Add CVal CVal
 	  | Sub CVal CVal
 	  | Mul CVal CVal
@@ -69,6 +70,7 @@ data CVal = Atom String
 showVal :: CVal -> String
 showVal (Atom name) = name
 showVal (Variation name) = name
+showVal (NullExp _) = ""
 showVal (Number n) = show n
 showVal (Add n1 n2) = "(+ " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
 showVal (Sub n1 n2) = "(- " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
@@ -95,12 +97,19 @@ parseFactor = do
          <|> parseVar
     whiteSpace
     return f
-		
+
+parseStatementList :: Parser [CVal]
+parseStatementList = do
+    s <- parseStatement
+    ((:) s <$> (whiteSpace *> parseStatementList)) <|> pure (s : [])
+    
 parseStatement :: Parser CVal
-parseStatement = do 
-    exp <- parseExpr
-    whiteSpace >> semi
-    return exp
+parseStatement =
+    do whiteSpace >> semi
+       return $ NullExp ()
+    <|> do exp <- parseExpr
+           whiteSpace >> semi
+           return exp
 
 parseProgram :: Parser CVal
 parseProgram = do
@@ -116,9 +125,6 @@ parseVar = do
          <|> parseDeclarator
     whiteSpace
     return n
-
---parseDeclarationList :: Parser [CVal]
---parseDeclarationList = do
 
 parseParameterDeclaration :: Parser CVal
 parseParameterDeclaration = do
@@ -156,6 +162,6 @@ parseNumber = liftM (Number . read) $ many1 digit
 main :: IO ()
 main = do
    input <- getLine
-   print $ case parse parseDeclarationList "TinyC" input of
+   print $ case parse parseStatementList "TinyC" input of
       Left err -> show err
       Right val -> show val
