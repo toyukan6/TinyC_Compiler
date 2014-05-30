@@ -164,17 +164,17 @@ parseDeclaratorList = do
 
 parseCompoundStatement :: Parser [CVal]
 parseCompoundStatement =
-    do whiteSpace
-       cs <- try (braces parseDeclarationList)
-             <|> try (braces parseStatementList)
-       return cs
-    <|> try (do char '{' >> whiteSpace
+    try (do whiteSpace
+            cs <- try (braces parseDeclarationList)
+                  <|> try (braces parseStatementList)
+            return cs)
+    <|> try (do whiteSpace >> char '{' >> whiteSpace
                 dl <- try parseDeclarationList
                 whiteSpace
                 sl <- try parseStatementList
                 whiteSpace >> char '}'
                 return $ dl ++ sl)
-    <|> do char '{' >> whiteSpace >> char '}'
+    <|> do whiteSpace >> char '{' >> whiteSpace >> char '}'
            return $ [NullExp ()]
 
 parseNumber :: Parser CVal
