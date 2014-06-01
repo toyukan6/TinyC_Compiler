@@ -72,6 +72,7 @@ showVal (Variation name) = name
 showVal (NullExp _) = ""
 showVal (Number n) = show n
 showVal (List l) = unwords . map show $ l
+showVal (CalFunc ident var) = "(" ++ ident ++ " (" ++ unwords (map show var) ++ "))"
 showVal (Expression op n1 n2) = "(" ++ op ++ " " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
 showVal (CompoundStatement var exp) = "((" ++ unwords (map show var) ++ ")(" ++ unwords (map show exp) ++ "))"
 
@@ -107,6 +108,8 @@ parseSubstitution = do
     whiteSpace >> char '=' >> whiteSpace
     r <- parseAssignExpr
     return $ Expression "=" i r
+
+--parseUnaryExpr 
 
 parsePostfixExpr :: Parser CVal
 parsePostfixExpr = try parseFactor
@@ -225,6 +228,20 @@ parseCompoundStatement =
 parseNumber :: Parser CVal
 parseNumber = liftM (Number . read) $ many1 digit
 
+test :: Parser CVal -> IO ()
+test parser = do
+    input <- getLine
+    print $ case parse parser "TinyC" input of
+        Left err -> show err
+	Right val -> show val
+
+test2 :: Parser [CVal] -> IO ()
+test2 parser = do
+    input <- getLine
+    print $ case parse parser "TinyC" input of
+        Left err -> show err
+	Right val -> unwords . map show $ val
+	
 main :: IO ()
 main = do
    input <- getLine
