@@ -60,13 +60,14 @@ spaces1 = skipMany1 space
 
 parseLogicalORExpr    :: Parser CVal
 parseLogicalORExpr    = buildExpressionParser table parseFactor
+    <?> "LogialORExpr"
 
-table   = [[op "*" (Expression "*") AssocLeft, op "/" (Expression "/") AssocLeft, op "%" (Expression "%") AssocLeft]
-          ,[op "+" (Expression "+") AssocLeft, op "-" (Expression "-") AssocLeft]
-          ,[op "<" (Expression "<") AssocLeft, op ">" (Expression ">") AssocLeft, op "<=" (Expression "<=") AssocLeft, op ">=" (Expression ">=") AssocLeft]
-          ,[op "==" (Expression "==") AssocLeft, op "!=" (Expression "!=") AssocLeft]
-          ,[op "&&" (Expression "&&") AssocLeft]
-	  ,[op "||" (Expression "||") AssocLeft]
+table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft, op "%" Mod AssocLeft]
+          ,[op "+" Add AssocLeft, op "-" Sub AssocLeft]
+          ,[op "<" More AssocLeft, op ">" Less AssocLeft, op "<=" MoreE AssocLeft, op ">=" LessE AssocLeft]
+          ,[op "==" Equal AssocLeft, op "!=" NEqual AssocLeft]
+          ,[op "&&" L_AND AssocLeft]
+	  ,[op "||" L_OR AssocLeft]
           ]
         where
           op s f assoc
@@ -76,10 +77,12 @@ parseExpression :: Parser [CVal]
 parseExpression = do
     assign <- parseAssignExpr
     ((:) assign <$> (whiteSpace *> comma *> whiteSpace *> parseExpression)) <|> pure (assign : [])
+    <?> "Expression"
 
 parseAssignExpr :: Parser CVal
 parseAssignExpr = try parseLogicalORExpr
                   <|> parseSubstitution
+    <?> "AssignExpr"
 
 parseSubstitution :: Parser CVal
 parseSubstitution = do
@@ -87,7 +90,8 @@ parseSubstitution = do
     i <- parseDeclarator
     whiteSpace >> char '=' >> whiteSpace
     r <- parseAssignExpr
-    return $ Expression "=" i r
+    return $ Assign i r
+    <?> "Substitution"
 
 parseUnaryExpr :: Parser CVal
 parseUnaryExpr = try parsePostfixExpr
@@ -95,10 +99,12 @@ parseUnaryExpr = try parsePostfixExpr
            ue <- parseUnaryExpr
 	   whiteSpace
 	   return $ Minus ue
+    <?> "UnaryExpr"
 
 parsePostfixExpr :: Parser CVal
 parsePostfixExpr = try parseFactor
                    <|> parseCalFunc
+    <?> "PostfixExpr"
 
 parseCalFunc :: Parser CVal
 parseCalFunc = try (do
@@ -110,12 +116,14 @@ parseCalFunc = try (do
     <|> do i <- identifier
            whiteSpace >> char '(' >> whiteSpace >> char ')' >> whiteSpace
 	   return $ CalFunc i []
+    <?> "CalFunc"
 
 parseArgumentExpressionList :: Parser [CVal]
 parseArgumentExpressionList = do
     whiteSpace
     ae <- parseAssignExpr
     ((:) ae <$> (whiteSpace *> comma *> whiteSpace *> parseArgumentExpressionList)) <|> pure (ae : [])
+    <?> "ArgumentExpressionList"
 
 parseFactor :: Parser CVal
 parseFactor = do
@@ -127,11 +135,13 @@ parseFactor = do
            f <- try (parens parseExpression)
            whiteSpace
            return $ List f
+    <?> "Factor"
 
 parseStatementList :: Parser [CVal]
 parseStatementList = do
     s <- parseStatement
     ((:) s <$> (whiteSpace *> parseStatementList)) <|> pure (s : [])
+    <?> "StatementList"
     
 parseStatement :: Parser CVal
 parseStatement =
@@ -142,14 +152,16 @@ parseStatement =
                 return (List exp))
     <|> try (do cs <- parseCompoundStatement
 		return cs)
-
+    <?> "Statement"
+    
 parseProgram :: Parser CVal
 parseProgram = do
     whiteSpace
     exp <- parseStatement
     whiteSpace
     return exp
-
+    <?> "Program"
+    
 parseVar :: Parser CVal
 parseVar = do 
     whiteSpace
@@ -157,11 +169,13 @@ parseVar = do
          <|> parseDeclarator
     whiteSpace
     return n
+    <?> "Var"    
 
 parseParameterTypeList :: Parser [CVal]
 parseParameterTypeList = do
     p <- parseParameterDeclaration
     ((:) p <$> (whiteSpace *> comma *> whiteSpace *> parseParameterTypeList)) <|> pure (p : [])
+    <?> "ParameterTypeList"
     
 parseParameterDeclaration :: Parser CVal
 parseParameterDeclaration = do
@@ -169,11 +183,13 @@ parseParameterDeclaration = do
     char 'i' >> char 'n' >> char 't' >> spaces1
     p <- parseDeclarator
     return p
+    <?> "ParameterDeclaration"    
 
 parseDeclarationList :: Parser [CVal]
 parseDeclarationList = do
     d <- parseDeclaration
     ((++) d <$> (whiteSpace *> parseDeclarationList)) <|> pure d
+    <?> "DeclarationList"
     
 parseDeclaration :: Parser [CVal]
 parseDeclaration = do
@@ -182,16 +198,19 @@ parseDeclaration = do
     pl <- parseDeclaratorList
     whiteSpace >> semi
     return pl
+    <?> "Declaration"
     
 parseDeclarator :: Parser CVal
 parseDeclarator = do
     v <- identifier
     return $ Variation v
-
+    <?> "Declarator"
+    
 parseDeclaratorList :: Parser [CVal]
 parseDeclaratorList = do
     p <- parseDeclarator
     ((:) p <$> (whiteSpace *> comma *> whiteSpace *> parseDeclaratorList)) <|> pure (p : [])
+    <?> "DeclaratorList"
 
 parseCompoundStatement :: Parser CVal
 parseCompoundStatement =
@@ -209,6 +228,7 @@ parseCompoundStatement =
                 return $ CompoundStatement dl sl)
     <|> do whiteSpace >> char '{' >> whiteSpace >> char '}'
            return $ CompoundStatement [] []
+    <?> "CompoundStatement"
 
 parseNumber :: Parser CVal
 parseNumber = liftM (Number . read) $ many1 digit
