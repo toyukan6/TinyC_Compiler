@@ -181,7 +181,7 @@ parseParameterTypeList = do
 parseParameterDeclaration :: Parser CVal
 parseParameterDeclaration = do
     whiteSpace
-    char 'i' >> char 'n' >> char 't' >> spaces1
+    reserved "int" >> spaces1
     p <- parseDeclarator
     return p
     <?> "ParameterDeclaration"    
@@ -194,8 +194,7 @@ parseDeclarationList = do
     
 parseDeclaration :: Parser [CVal]
 parseDeclaration = do
-    char 'i' >> char 'n' >> char 't'
-    spaces1
+    reserved "int" >> spaces1
     pl <- parseDeclaratorList
     whiteSpace >> semi
     return pl
