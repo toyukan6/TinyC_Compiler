@@ -11,6 +11,7 @@ import Text.ParserCombinators.Parsec.Language
 import GHC.IO.Handle
 import System.IO
 import Syntax.AST
+import Syntax.Type
 
 tinyCStyle = emptyDef {
 	   commentStart   = "/*"
@@ -203,7 +204,7 @@ parseDeclaration = do
 parseDeclarator :: Parser CVal
 parseDeclarator = do
     v <- identifier
-    return $ Variation v
+    return $ Variation Int v
     <?> "Declarator"
     
 parseDeclaratorList :: Parser [CVal]
