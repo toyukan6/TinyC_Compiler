@@ -10,7 +10,6 @@ import qualified Text.ParserCombinators.Parsec.Token as Token
 import Text.ParserCombinators.Parsec.Language
 import GHC.IO.Handle
 import System.IO
-import Syntax.AST
 
 tinyCStyle = emptyDef {
 	   commentStart   = "/*"
@@ -57,6 +56,29 @@ comma      :: Parser String
 comma      = Token.comma lexer
 spaces1 :: Parser ()
 spaces1 = skipMany1 space
+
+data CVal = Atom String
+	  | Number Integer
+	  | Minus CVal
+	  | Variation String
+	  | NullExp ()
+	  | List [CVal]
+	  | CalFunc String [CVal]
+	  | Expression String CVal CVal
+	  | CompoundStatement [CVal] [CVal]
+
+showVal :: CVal -> String
+showVal (Atom name) = name
+showVal (Variation name) = name
+showVal (NullExp _) = ""
+showVal (Number n) = show n
+showVal (Minus n) = '-' : show n
+showVal (List l) = unwords . map show $ l
+showVal (CalFunc ident var) = "(" ++ ident ++ " (" ++ unwords (map show var) ++ "))"
+showVal (Expression op n1 n2) = "(" ++ op ++ " " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
+showVal (CompoundStatement var exp) = "((" ++ unwords (map show var) ++ ")(" ++ unwords (map show exp) ++ "))"
+
+instance Show CVal where show = showVal
 
 parseLogicalORExpr    :: Parser CVal
 parseLogicalORExpr    = buildExpressionParser table parseFactor
