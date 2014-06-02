@@ -59,6 +59,7 @@ spaces1 = skipMany1 space
 
 data CVal = Atom String
 	  | Number Integer
+	  | Minus CVal
 	  | Variation String
 	  | NullExp ()
 	  | List [CVal]
@@ -71,6 +72,7 @@ showVal (Atom name) = name
 showVal (Variation name) = name
 showVal (NullExp _) = ""
 showVal (Number n) = show n
+showVal (Minus n) = '-' : show n
 showVal (List l) = unwords . map show $ l
 showVal (CalFunc ident var) = "(" ++ ident ++ " (" ++ unwords (map show var) ++ "))"
 showVal (Expression op n1 n2) = "(" ++ op ++ " " ++ showVal n1 ++ " " ++ showVal n2 ++ ")"
@@ -109,7 +111,12 @@ parseSubstitution = do
     r <- parseAssignExpr
     return $ Expression "=" i r
 
---parseUnaryExpr 
+parseUnaryExpr :: Parser CVal
+parseUnaryExpr = try parsePostfixExpr
+    <|> do whiteSpace >> char '-'
+           ue <- parseUnaryExpr
+	   whiteSpace
+	   return $ Minus ue
 
 parsePostfixExpr :: Parser CVal
 parsePostfixExpr = try parseFactor
