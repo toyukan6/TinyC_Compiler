@@ -56,8 +56,6 @@ semi       :: Parser String
 semi       = Token.semi lexer
 comma      :: Parser String
 comma      = Token.comma lexer
-spaces1 :: Parser ()
-spaces1 = skipMany1 space
 
 parseLogicalORExpr    :: Parser CVal
 parseLogicalORExpr    = buildExpressionParser table parseFactor
@@ -181,7 +179,7 @@ parseParameterTypeList = do
 parseParameterDeclaration :: Parser CVal
 parseParameterDeclaration = do
     whiteSpace
-    reserved "int" >> spaces1
+    reserved "int"
     p <- parseDeclarator
     return p
     <?> "ParameterDeclaration"    
@@ -194,7 +192,7 @@ parseDeclarationList = do
     
 parseDeclaration :: Parser [CVal]
 parseDeclaration = do
-    reserved "int" >> spaces1
+    reserved "int"
     pl <- parseDeclaratorList
     whiteSpace >> semi
     return pl
