@@ -2,14 +2,18 @@ module Syntax.AST where
 
 import Syntax.Type
 
+data Identifier = Identifier String
+
+instance Show Identifier where
+    show (Identifier s) = s
+
 data CVal = Atom String
 	  | Number Integer
+	  | Ident Identifier
 	  | Minus CVal
-	  | Variation Type String
-	  | NullExp ()
-	  | List [CVal]
+	  | CValList CVal CVal
 	  | CalFunc String [CVal]
-	  | Assign CVal CVal
+	  | Assign Variation CVal
 	  | Add CVal CVal
 	  | Sub CVal CVal
 	  | Mul CVal CVal
@@ -23,20 +27,39 @@ data CVal = Atom String
 	  | NEqual CVal CVal
 	  | L_AND CVal CVal
 	  | L_OR CVal CVal
-	  | CompoundStatement [CVal] [CVal]
 
+data Variation = Variation Type Identifier
+
+instance Show Variation where
+    show (Variation t ident) = "(" ++ show t ++ " " ++ show ident ++ ")"
+	  
+data Statement = NullExp
+               | Expression CVal
+	       | If CVal Statement Statement
+	       | While CVal Statement
+	       | Return (Maybe Statement)
+	       | Declaration [Variation]
+               | CompoundStatement [Statement]
+
+data Function = Func Type Identifier [Variation] [Statement]
+
+unwordsList :: (Show a) => [a] -> String
+unwordsList l = unwords . map show $ l
+
+instance Show Function where
+    show (Func t ident var state) = "(" ++ show t ++ " " ++ show ident ++ " " ++ unwordsList var ++ " " ++ unwordsList state ++ ")"
+    
 showExpr :: String -> CVal -> CVal -> String
 showExpr s c1 c2 = "(" ++ s ++ " " ++ show c1 ++ " " ++ show c2 ++ ")"
 
 showVal :: CVal -> String
 showVal (Atom name) = name
-showVal (Variation Int name) = "(int " ++ name ++ ")"
-showVal (NullExp _) = ""
 showVal (Number n) = show n
+showVal (Ident ident) = show ident
 showVal (Minus n) = '-' : show n
-showVal (List l) = unwordsList l
+showVal (CValList l1 l2) = show l1 ++ show l2
 showVal (CalFunc ident var) = "(" ++ ident ++ " (" ++ unwordsList var ++ "))"
-showVal (Assign n1 n2) = showExpr "=" n1 n2
+showVal (Assign n1 n2) = "(= " ++ show n1 ++ " " ++ show n2 ++ ")"
 showVal (Add n1 n2) = showExpr "+" n1 n2
 showVal (Sub n1 n2) = showExpr "-" n1 n2
 showVal (Mul n1 n2) = showExpr "*" n1 n2
@@ -50,9 +73,17 @@ showVal (Equal n1 n2) = showExpr "==" n1 n2
 showVal (NEqual n1 n2) = showExpr "!=" n1 n2
 showVal (L_AND n1 n2) = showExpr "and" n1 n2
 showVal (L_OR n1 n2) = showExpr "or" n1 n2
-showVal (CompoundStatement var exp) = "((" ++ unwordsList var ++ ")(" ++ unwordsList exp ++ "))"
 
 instance Show CVal where show = showVal
 
-unwordsList :: [CVal] -> String
-unwordsList l = unwords . map show $ l
+showStatement :: Statement -> String
+showStatement NullExp = "()"
+showStatement (Expression val) = show val
+showStatement (If cond state1 state2) = "(if " ++ show cond ++ " " ++ show state1 ++ " " ++ show state2 ++ ")"
+showStatement (While cond state) = "(while " ++ show cond ++ " " ++ show state ++ ")"
+showStatement (Return (Just state)) = "(return " ++ show state ++ ")"
+showStatement (Return Nothing) = "(return)"
+showStatement (Declaration var) = unwordsList var
+showStatement (CompoundStatement state) = "(" ++ unwordsList state ++ ")"
+
+instance Show Statement where show = showStatement

@@ -2,7 +2,7 @@ module Main where
 import Control.Monad
 import System.Environment
 import Control.Monad.Error
-import Control.Applicative hiding ((<|>))
+import Control.Applicative hiding ((<|>), many)
 import Data.IORef
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
@@ -72,11 +72,13 @@ table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft, op "%" Mod AssocLeft]
           op s f assoc
              = Infix (do{ string s; return f}) assoc
 
-parseExpression :: Parser [CVal]
-parseExpression = do
-    assign <- parseAssignExpr
-    ((:) assign <$> (whiteSpace *> comma *> whiteSpace *> parseExpression)) <|> pure (assign : [])
-    <?> "Expression"
+parseExpression :: Parser CVal
+parseExpression = do assign <- parseAssignExpr `sepBy1` comma
+                     return (f assign)
+		     <?> "Expression"
+    where f (x : []) = x
+          f (x : xs) = CValList x (f xs)
+	  f [] = error "Bugs!"
 
 parseAssignExpr :: Parser CVal
 parseAssignExpr = try parseLogicalORExpr
@@ -133,26 +135,43 @@ parseFactor = do
     <|> do whiteSpace
            f <- try (parens parseExpression)
            whiteSpace
-           return $ List f
+           return f
     <?> "Factor"
 
-parseStatementList :: Parser [CVal]
+parseStatementList :: Parser [Statement]
 parseStatementList = do
-    s <- parseStatement
-    ((:) s <$> (whiteSpace *> parseStatementList)) <|> pure (s : [])
+    s <- many parseStatement
+    return s
     <?> "StatementList"
     
-parseStatement :: Parser CVal
+parseStatement :: Parser Statement
 parseStatement =
     try (do whiteSpace >> semi
-            return (NullExp ()))
+            return NullExp)
     <|> try (do exp <- parseExpression
                 whiteSpace >> semi
-                return (List exp))
+                return (Expression exp))
+    <|> try parseIf
+    <|> try parseWhile
     <|> try (do cs <- parseCompoundStatement
 		return cs)
     <?> "Statement"
-    
+
+parseIf :: Parser Statement
+parseIf = do
+    reserved "if"
+    cond <- parens parseExpression
+    state <- parseStatement
+    (If cond state <$> (reserved "else" *> parseStatement)) <|> pure (If cond state NullExp)
+
+parseWhile :: Parser Statement
+parseWhile = do
+    reserved "while"
+    cond <- parens parseExpression
+    state <- parseStatement
+    return $ While cond state
+
+{-    
 parseProgram :: Parser CVal
 parseProgram = do
     whiteSpace
@@ -160,23 +179,27 @@ parseProgram = do
     whiteSpace
     return exp
     <?> "Program"
-    
-parseVar :: Parser CVal
-parseVar = do 
-    whiteSpace
-    n <- parseNumber
-         <|> parseDeclarator
-    whiteSpace
-    return n
-    <?> "Var"    
+-}
 
-parseParameterTypeList :: Parser [CVal]
+parseVar :: Parser CVal
+parseVar = do n <- parseNumber
+              return n
+	   <|> do i <- parseIdentifier
+	          return $ Ident i
+	   <?> "Var"    
+
+parseIdentifier :: Parser Identifier
+parseIdentifier = do name <- identifier
+		     return $ Identifier name
+		  <?> "Identifier"
+	   
+parseParameterTypeList :: Parser Statement
 parseParameterTypeList = do
-    p <- parseParameterDeclaration
-    ((:) p <$> (whiteSpace *> comma *> whiteSpace *> parseParameterTypeList)) <|> pure (p : [])
+    p <- parseParameterDeclaration `sepBy1` comma
+    return $ Declaration p
     <?> "ParameterTypeList"
     
-parseParameterDeclaration :: Parser CVal
+parseParameterDeclaration :: Parser Variation
 parseParameterDeclaration = do
     whiteSpace
     reserved "int"
@@ -184,13 +207,13 @@ parseParameterDeclaration = do
     return p
     <?> "ParameterDeclaration"    
 
-parseDeclarationList :: Parser [CVal]
+parseDeclarationList :: Parser [Statement]
 parseDeclarationList = do
-    d <- parseDeclaration
-    ((++) d <$> (whiteSpace *> parseDeclarationList)) <|> pure d
+    d <- many parseDeclaration
+    return d
     <?> "DeclarationList"
     
-parseDeclaration :: Parser [CVal]
+parseDeclaration :: Parser Statement
 parseDeclaration = do
     reserved "int"
     pl <- parseDeclaratorList
@@ -198,40 +221,31 @@ parseDeclaration = do
     return pl
     <?> "Declaration"
     
-parseDeclarator :: Parser CVal
+parseDeclarator :: Parser Variation
 parseDeclarator = do
-    v <- identifier
+    v <- parseIdentifier
     return $ Variation Int v
     <?> "Declarator"
     
-parseDeclaratorList :: Parser [CVal]
+parseDeclaratorList :: Parser Statement
 parseDeclaratorList = do
-    p <- parseDeclarator
-    ((:) p <$> (whiteSpace *> comma *> whiteSpace *> parseDeclaratorList)) <|> pure (p : [])
+    p <- parseDeclarator `sepBy1` comma
+    return $ Declaration p
     <?> "DeclaratorList"
 
-parseCompoundStatement :: Parser CVal
+parseCompoundStatement :: Parser Statement
 parseCompoundStatement =
-    try (do whiteSpace
-            cs <- braces parseDeclarationList
-            return (CompoundStatement cs []))
-    <|> try (do whiteSpace
-                cs <- braces parseStatementList
-                return (CompoundStatement [] cs))
-    <|> try (do whiteSpace >> char '{' >> whiteSpace
-                dl <- try parseDeclarationList
-                whiteSpace
-                sl <- try parseStatementList
-                whiteSpace >> char '}'
-                return $ CompoundStatement dl sl)
-    <|> do whiteSpace >> char '{' >> whiteSpace >> char '}'
-           return $ CompoundStatement [] []
+    do symbol "{"
+       dl <- parseDeclarationList
+       sl <- parseStatementList
+       symbol "}"
+       return $ CompoundStatement $ dl ++ sl
     <?> "CompoundStatement"
 
 parseNumber :: Parser CVal
 parseNumber = liftM (Number . read) $ many1 digit
 
-test :: Parser CVal -> IO ()
+test :: (Show a) => Parser a -> IO ()
 test parser = do
     input <- getLine
     print $ case parse parser "TinyC" input of
