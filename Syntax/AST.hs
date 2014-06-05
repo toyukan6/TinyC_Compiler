@@ -37,17 +37,21 @@ data Statement = NullExp
                | Expression CVal
 	       | If CVal Statement Statement
 	       | While CVal Statement
-	       | Return (Maybe Statement)
+	       | Return (Maybe CVal)
 	       | Declaration [Variation]
                | CompoundStatement [Statement]
 
-data Function = Func Type Identifier [Variation] [Statement]
+data Function = Func Type Identifier [Variation] Statement
+
+data Program = PDecl Statement
+             | PFunc Function
+
+instance Show Program where
+    show (PDecl state) = show state
+    show (PFunc func) = show func
 
 unwordsList :: (Show a) => [a] -> String
 unwordsList l = unwords . map show $ l
-
-instance Show Function where
-    show (Func t ident var state) = "(" ++ show t ++ " " ++ show ident ++ " " ++ unwordsList var ++ " " ++ unwordsList state ++ ")"
     
 showExpr :: String -> CVal -> CVal -> String
 showExpr s c1 c2 = "(" ++ s ++ " " ++ show c1 ++ " " ++ show c2 ++ ")"
@@ -87,3 +91,6 @@ showStatement (Declaration var) = unwordsList var
 showStatement (CompoundStatement state) = "(" ++ unwordsList state ++ ")"
 
 instance Show Statement where show = showStatement
+
+instance Show Function where
+    show (Func t ident var state) = "(" ++ show t ++ " " ++ show ident ++ " (" ++ unwordsList var ++ ") " ++ show state ++ ")"

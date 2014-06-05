@@ -1,4 +1,5 @@
-module Main where
+module Parser.TinyCParser where
+
 import Control.Monad
 import System.Environment
 import Control.Monad.Error
@@ -58,7 +59,7 @@ comma      :: Parser String
 comma      = Token.comma lexer
 
 parseLogicalORExpr    :: Parser CVal
-parseLogicalORExpr    = buildExpressionParser table parseFactor
+parseLogicalORExpr    = buildExpressionParser table parseUnaryExpr
     <?> "LogialORExpr"
 
 table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft, op "%" Mod AssocLeft]
@@ -70,7 +71,7 @@ table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft, op "%" Mod AssocLeft]
           ]
         where
           op s f assoc
-             = Infix (do{ string s; return f}) assoc
+             = Infix (do{ reservedOp s; return f}) assoc
 
 parseExpression :: Parser CVal
 parseExpression = do assign <- parseAssignExpr `sepBy1` comma
@@ -81,15 +82,15 @@ parseExpression = do assign <- parseAssignExpr `sepBy1` comma
 	  f [] = error "Bugs!"
 
 parseAssignExpr :: Parser CVal
-parseAssignExpr = try parseLogicalORExpr
-                  <|> parseSubstitution
+parseAssignExpr = try parseSubstitution
+                  <|> parseLogicalORExpr
     <?> "AssignExpr"
 
 parseSubstitution :: Parser CVal
 parseSubstitution = do
     whiteSpace
     i <- parseDeclarator
-    whiteSpace >> char '=' >> whiteSpace
+    whiteSpace >> reservedOp "=" >> whiteSpace
     r <- parseAssignExpr
     return $ Assign i r
     <?> "Substitution"
@@ -103,27 +104,19 @@ parseUnaryExpr = try parsePostfixExpr
     <?> "UnaryExpr"
 
 parsePostfixExpr :: Parser CVal
-parsePostfixExpr = try parseFactor
-                   <|> parseCalFunc
+parsePostfixExpr = try parseCalFunc
+                   <|> parseFactor
     <?> "PostfixExpr"
 
 parseCalFunc :: Parser CVal
-parseCalFunc = try (do
+parseCalFunc = do
     i <- identifier
-    whiteSpace >> char '('
-    ae <- parseArgumentExpressionList
-    whiteSpace >> char ')'
-    return $ CalFunc i ae)
-    <|> do i <- identifier
-           whiteSpace >> char '(' >> whiteSpace >> char ')' >> whiteSpace
-	   return $ CalFunc i []
+    arl <- parens parseArgumentExpressionList
+    return $ CalFunc i arl
     <?> "CalFunc"
 
 parseArgumentExpressionList :: Parser [CVal]
-parseArgumentExpressionList = do
-    whiteSpace
-    ae <- parseAssignExpr
-    ((:) ae <$> (whiteSpace *> comma *> whiteSpace *> parseArgumentExpressionList)) <|> pure (ae : [])
+parseArgumentExpressionList = parseAssignExpr `sepBy` comma
     <?> "ArgumentExpressionList"
 
 parseFactor :: Parser CVal
@@ -132,10 +125,7 @@ parseFactor = do
     f <- parseVar
     whiteSpace
     return f
-    <|> do whiteSpace
-           f <- try (parens parseExpression)
-           whiteSpace
-           return f
+    <|> parens parseExpression
     <?> "Factor"
 
 parseStatementList :: Parser [Statement]
@@ -151,10 +141,11 @@ parseStatement =
     <|> try (do exp <- parseExpression
                 whiteSpace >> semi
                 return (Expression exp))
-    <|> try parseIf
-    <|> try parseWhile
     <|> try (do cs <- parseCompoundStatement
 		return cs)
+    <|> try parseIf
+    <|> try parseWhile
+    <|> try parseReturn
     <?> "Statement"
 
 parseIf :: Parser Statement
@@ -171,20 +162,26 @@ parseWhile = do
     state <- parseStatement
     return $ While cond state
 
-{-    
-parseProgram :: Parser CVal
-parseProgram = do
-    whiteSpace
-    exp <- parseStatement
-    whiteSpace
-    return exp
-    <?> "Program"
--}
+parseReturn :: Parser Statement
+parseReturn = do
+    reserved "return"
+    exp <- optionMaybe parseExpression
+    whiteSpace >> semi
+    return $ Return exp
 
+parseProgram :: Parser [Program]
+parseProgram = parseExternalDeclaration `sepBy1` whiteSpace
+    <?> "Program"
+
+parseExternalDeclaration :: Parser Program
+parseExternalDeclaration = try (do dec <- parseDeclaration
+			           return (PDecl dec))
+    <|> do func <- parseFunctionDefinition
+           return $ PFunc func
+    
 parseVar :: Parser CVal
-parseVar = do n <- parseNumber
-              return n
-	   <|> do i <- parseIdentifier
+parseVar = parseNumber
+           <|> do i <- parseIdentifier
 	          return $ Ident i
 	   <?> "Var"    
 
@@ -192,11 +189,19 @@ parseIdentifier :: Parser Identifier
 parseIdentifier = do name <- identifier
 		     return $ Identifier name
 		  <?> "Identifier"
+
+parseFunctionDefinition :: Parser Function
+parseFunctionDefinition = do
+    reserved "int"
+    name <- parseIdentifier
+    param <- parens parseParameterTypeList
+    body <- parseCompoundStatement
+    return $ Func Int name param body
 	   
-parseParameterTypeList :: Parser Statement
+parseParameterTypeList :: Parser [Variation]
 parseParameterTypeList = do
-    p <- parseParameterDeclaration `sepBy1` comma
-    return $ Declaration p
+    p <- parseParameterDeclaration `sepBy` comma
+    return p
     <?> "ParameterTypeList"
     
 parseParameterDeclaration :: Parser Variation
@@ -244,24 +249,3 @@ parseCompoundStatement =
 
 parseNumber :: Parser CVal
 parseNumber = liftM (Number . read) $ many1 digit
-
-test :: (Show a) => Parser a -> IO ()
-test parser = do
-    input <- getLine
-    print $ case parse parser "TinyC" input of
-        Left err -> show err
-	Right val -> show val
-
-test2 :: Parser [CVal] -> IO ()
-test2 parser = do
-    input <- getLine
-    print $ case parse parser "TinyC" input of
-        Left err -> show err
-	Right val -> unwords . map show $ val
-	
-main :: IO ()
-main = do
-   input <- getLine
-   print $ case parse parseStatement "TinyC" input of
-      Left err -> show err
-      Right val -> show val
