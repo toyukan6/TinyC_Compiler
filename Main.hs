@@ -30,7 +30,7 @@ test2 parser = do
 	
 main :: IO ()
 main = do
-   input <- getArgs
+   input <- getLine
    print $ case parse parseStatement "TinyC" input of
       Left err -> show err
       Right val -> show val

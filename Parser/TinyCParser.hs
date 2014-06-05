@@ -129,9 +129,7 @@ parseFactor = do
     <?> "Factor"
 
 parseStatementList :: Parser [Statement]
-parseStatementList = do
-    s <- many parseStatement
-    return s
+parseStatementList = many parseStatement
     <?> "StatementList"
     
 parseStatement :: Parser Statement
@@ -199,9 +197,7 @@ parseFunctionDefinition = do
     return $ Func Int name param body
 	   
 parseParameterTypeList :: Parser [Variation]
-parseParameterTypeList = do
-    p <- parseParameterDeclaration `sepBy` comma
-    return p
+parseParameterTypeList = parseParameterDeclaration `sepBy` comma
     <?> "ParameterTypeList"
     
 parseParameterDeclaration :: Parser Variation
@@ -213,9 +209,7 @@ parseParameterDeclaration = do
     <?> "ParameterDeclaration"    
 
 parseDeclarationList :: Parser [Statement]
-parseDeclarationList = do
-    d <- many parseDeclaration
-    return d
+parseDeclarationList = many parseDeclaration
     <?> "DeclarationList"
     
 parseDeclaration :: Parser Statement
