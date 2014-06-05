@@ -89,7 +89,7 @@ parseAssignExpr = try parseSubstitution
 parseSubstitution :: Parser CVal
 parseSubstitution = do
     whiteSpace
-    i <- parseDeclarator
+    i <- parseIdentifier
     whiteSpace >> reservedOp "=" >> whiteSpace
     r <- parseAssignExpr
     return $ Assign i r
@@ -202,7 +202,6 @@ parseParameterTypeList = parseParameterDeclaration `sepBy` comma
     
 parseParameterDeclaration :: Parser Variation
 parseParameterDeclaration = do
-    whiteSpace
     reserved "int"
     p <- parseDeclarator
     return p
@@ -243,3 +242,8 @@ parseCompoundStatement =
 
 parseNumber :: Parser CVal
 parseNumber = liftM (Number . read) $ many1 digit
+
+parseType :: Parser Type
+parseType = (reserved "int" >> return Int)
+            <|> (reserved "void" >> return Void)
+	    <?> "Type"

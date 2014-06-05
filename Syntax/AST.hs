@@ -13,7 +13,7 @@ data CVal = Atom String
 	  | Minus CVal
 	  | CValList CVal CVal
 	  | CalFunc String [CVal]
-	  | Assign Variation CVal
+	  | Assign Identifier CVal
 	  | Add CVal CVal
 	  | Sub CVal CVal
 	  | Mul CVal CVal
