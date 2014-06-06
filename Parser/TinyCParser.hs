@@ -110,7 +110,7 @@ parsePostfixExpr = try parseCalFunc
 
 parseCalFunc :: Parser CVal
 parseCalFunc = do
-    i <- identifier
+    i <- parseIdentifier
     arl <- parens parseArgumentExpressionList
     return $ CalFunc i arl
     <?> "CalFunc"
@@ -120,12 +120,8 @@ parseArgumentExpressionList = parseAssignExpr `sepBy` comma
     <?> "ArgumentExpressionList"
 
 parseFactor :: Parser CVal
-parseFactor = do
-    whiteSpace
-    f <- parseVar
-    whiteSpace
-    return f
-    <|> parens parseExpression
+parseFactor = parseVar
+	      <|> parens parseExpression
     <?> "Factor"
 
 parseStatementList :: Parser [Statement]
@@ -194,7 +190,7 @@ parseFunctionDefinition = do
     name <- parseIdentifier
     param <- parens parseParameterTypeList
     body <- parseCompoundStatement
-    return $ Func Int name param body
+    return $ Func CInt name param body
 	   
 parseParameterTypeList :: Parser [Variation]
 parseParameterTypeList = parseParameterDeclaration `sepBy` comma
@@ -222,7 +218,7 @@ parseDeclaration = do
 parseDeclarator :: Parser Variation
 parseDeclarator = do
     v <- parseIdentifier
-    return $ Variation Int v
+    return $ Variation CInt v
     <?> "Declarator"
     
 parseDeclaratorList :: Parser Statement
@@ -244,6 +240,6 @@ parseNumber :: Parser CVal
 parseNumber = liftM (Number . read) $ many1 digit
 
 parseType :: Parser Type
-parseType = (reserved "int" >> return Int)
-            <|> (reserved "void" >> return Void)
+parseType = (reserved "int" >> return CInt)
+            <|> (reserved "void" >> return CVoid)
 	    <?> "Type"

@@ -12,7 +12,7 @@ data CVal = Atom String
 	  | Ident Identifier
 	  | Minus CVal
 	  | CValList CVal CVal
-	  | CalFunc String [CVal]
+	  | CalFunc Identifier [CVal]
 	  | Assign Identifier CVal
 	  | Add CVal CVal
 	  | Sub CVal CVal
@@ -62,7 +62,7 @@ showVal (Number n) = show n
 showVal (Ident ident) = show ident
 showVal (Minus n) = '-' : show n
 showVal (CValList l1 l2) = show l1 ++ show l2
-showVal (CalFunc ident var) = "(" ++ ident ++ " (" ++ unwordsList var ++ "))"
+showVal (CalFunc ident var) = "(" ++ show ident ++ " (" ++ unwordsList var ++ "))"
 showVal (Assign n1 n2) = "(= " ++ show n1 ++ " " ++ show n2 ++ ")"
 showVal (Add n1 n2) = showExpr "+" n1 n2
 showVal (Sub n1 n2) = showExpr "-" n1 n2

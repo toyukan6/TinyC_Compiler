@@ -1,5 +1,5 @@
 module Syntax.Type where
 
-data Type = Int
-          | Void
+data Type = CInt
+          | CVoid
 	  deriving (Show)

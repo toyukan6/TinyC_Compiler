@@ -14,23 +14,11 @@ import Parser.TinyCParser
 import Syntax.AST
 import Syntax.Type
 
-test :: (Show a) => Parser a -> IO ()
-test parser = do
-    input <- getLine
-    print $ case parse parser "TinyC" input of
-        Left err -> show err
-	Right val -> show val
-
-test2 :: Parser [CVal] -> IO ()
-test2 parser = do
-    input <- getLine
-    print $ case parse parser "TinyC" input of
-        Left err -> show err
-	Right val -> unwords . map show $ val
-	
 main :: IO ()
 main = do
-   input <- getLine
-   print $ case parse parseStatement "TinyC" input of
+   input <- getArgs
+   file <- readFile (head input)
+   print $ case parse parseProgram "TinyC" file of
       Left err -> show err
       Right val -> show val
+

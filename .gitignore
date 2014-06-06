@@ -1,3 +1,5 @@
 *.o
 *.out
 *.hi
+*.txt
+*.tc
