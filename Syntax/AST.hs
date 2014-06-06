@@ -52,6 +52,9 @@ instance Show Program where
 
 unwordsList :: (Show a) => [a] -> String
 unwordsList l = unwords . map show $ l
+
+indent :: (Show a) => [a] -> String
+indent l = unwords . map ((++) "    " . show) $ l
     
 showExpr :: String -> CVal -> CVal -> String
 showExpr s c1 c2 = "(" ++ s ++ " " ++ show c1 ++ " " ++ show c2 ++ ")"
