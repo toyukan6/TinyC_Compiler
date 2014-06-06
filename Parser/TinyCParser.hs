@@ -1,16 +1,11 @@
 module Parser.TinyCParser where
 
-import Control.Monad
-import System.Environment
 import Control.Monad.Error
-import Control.Applicative hiding ((<|>), many)
-import Data.IORef
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
 import qualified Text.ParserCombinators.Parsec.Token as Token
 import Text.ParserCombinators.Parsec.Language
-import GHC.IO.Handle
-import System.IO
+
 import Syntax.AST
 import Syntax.Type
 
@@ -147,7 +142,15 @@ parseIf = do
     reserved "if"
     cond <- parens parseExpression
     state <- parseStatement
-    (If cond state <$> (reserved "else" *> parseStatement)) <|> pure (If cond state NullExp)
+    elsestate <- parseElse
+    return $ If cond state elsestate
+
+parseElse :: Parser Statement
+parseElse = do
+    reserved "else"
+    state <- parseStatement
+    return state
+    <|> return NullExp
 
 parseWhile :: Parser Statement
 parseWhile = do
