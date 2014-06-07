@@ -15,12 +15,12 @@ tinyCStyle = emptyDef {
            , commentEnd     = "*/" --複数行コメントの終わり
            , commentLine    = "//" --コメントライン
            , nestedComments = True --複数行コメントを許す
-           , identStart     = letter <|> char '_' --識別子の開始
-           , identLetter    = alphaNum <|> oneOf "_" --識別子の利用可能文字
+           , identStart     = letter <|> char '_' --変数名の開始
+           , identLetter    = alphaNum <|> oneOf "_" --変数名の利用可能文字
            , opStart        = opLetter emptyDef --演算子の開始
            , opLetter       = oneOf ":!#$%&*+./<=>?@\\^|-~" --演算子の利用可能文字
            , reservedOpNames= [] --拒絶される演算子
-           , reservedNames  = ["if", "else", "while", "return", "int", "void"] --拒絶される識別子名
+           , reservedNames  = ["if", "else", "while", "return", "int", "void"] --拒絶される変数名
            , caseSensitive  = True --大文字と小文字を区別するか
            }
 
