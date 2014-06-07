@@ -40,7 +40,7 @@ symbol     = Token.symbol lexer
 --数字のパース
 natural    :: Parser Integer
 natural    = Token.natural lexer
---識別子のパース
+--変数名のパース
 identifier :: Parser String
 identifier = Token.identifier lexer
 --拒絶のパース
