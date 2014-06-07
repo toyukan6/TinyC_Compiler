@@ -46,25 +46,34 @@ identifier = Token.identifier lexer
 --拒絶のパース
 reserved   :: String -> Parser ()
 reserved   = Token.reserved lexer
+--演算子のパース
 operator   :: Parser String
 operator   = Token.operator lexer
+--拒絶される演算子のパース
 reservedOp :: String -> Parser ()
 reservedOp = Token.reservedOp lexer
+--かっこのパース
 parens     :: Parser a -> Parser a
 parens	      = Token.parens lexer
+--波かっこのパース
 braces     :: Parser a -> Parser a
 braces	      = Token.braces lexer
+--角かっこのパース
 squares    :: Parser a -> Parser a
 squares    = Token.squares lexer
+--セミコロン
 semi       :: Parser String
 semi       = Token.semi lexer
+--コンマ
 comma      :: Parser String
 comma      = Token.comma lexer
 
+--logical-OR-exprからmult-exprまでのパース
 parseLogicalORExpr    :: Parser CVal
 parseLogicalORExpr    = buildExpressionParser table parseUnaryExpr
     <?> "LogialORExpr"
 
+--演算子のパースとそのとき実行する関数のリスト
 table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft, op "%" Mod AssocLeft]
           ,[op "+" Add AssocLeft, op "-" Sub AssocLeft]
           ,[op "<" More AssocLeft, op ">" Less AssocLeft, op "<=" MoreE AssocLeft, op ">=" LessE AssocLeft]
@@ -72,10 +81,9 @@ table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft, op "%" Mod AssocLeft]
           ,[op "&&" L_AND AssocLeft]
 	  ,[op "||" L_OR AssocLeft]
           ]
-        where
-          op s f assoc
-             = Infix (do{ reservedOp s; return f}) assoc
+        where op s f assoc = Infix (do{ reservedOp s; return f}) assoc
 
+--expressionのパース
 parseExpression :: Parser CVal
 parseExpression = do whiteSpace
 		     assign <- (lexeme parseAssignExpr) `sepBy1` comma
@@ -85,11 +93,13 @@ parseExpression = do whiteSpace
           f (x : xs) = CValList x (f xs)
 	  f [] = error "Bugs!"
 
+--assign-exprのパース
 parseAssignExpr :: Parser CVal
 parseAssignExpr = try parseSubstitution
                   <|> parseLogicalORExpr
     <?> "AssignExpr"
 
+--substitutionのパース
 parseSubstitution :: Parser CVal
 parseSubstitution = do
     i <- lexeme parseIdentifier
@@ -98,6 +108,7 @@ parseSubstitution = do
     return $ Assign i r
     <?> "Substitution"
 
+--unary-exprのパース
 parseUnaryExpr :: Parser CVal
 parseUnaryExpr = parsePostfixExpr
     <|> do char '-'
@@ -105,11 +116,13 @@ parseUnaryExpr = parsePostfixExpr
 	   return $ Minus ue
     <?> "UnaryExpr"
 
+--postfix-exprのパース
 parsePostfixExpr :: Parser CVal
 parsePostfixExpr = try parseCalFunc
-                   <|> parseFactor
+                   <|> parsePrimaryExpr
     <?> "PostfixExpr"
 
+--関数呼び出しのパース
 parseCalFunc :: Parser CVal
 parseCalFunc = do
     i <- lexeme parseIdentifier
@@ -117,19 +130,23 @@ parseCalFunc = do
     return $ CalFunc i arl
     <?> "CalFunc"
 
+--argument-expression-listのパース
 parseArgumentExpressionList :: Parser [CVal]
 parseArgumentExpressionList = parseAssignExpr `sepBy` comma
     <?> "ArgumentExpressionList"
 
-parseFactor :: Parser CVal
-parseFactor = parseVar
+--primary-exprのパース
+parsePrimaryExpr :: Parser CVal
+parsePrimaryExpr = parseVar
 	      <|> parens parseExpression
-    <?> "Factor"
+    <?> "PrimaryExpr"
 
+--statement-listのパース
 parseStatementList :: Parser [Statement]
 parseStatementList = many parseStatement
     <?> "StatementList"
-    
+
+--statementのパース
 parseStatement :: Parser Statement
 parseStatement =
     do lexeme semi
@@ -144,6 +161,7 @@ parseStatement =
            return $ Expression exp
     <?> "Statement"
 
+--if文のパース
 parseIf :: Parser Statement
 parseIf = do
     reserved "if"
@@ -152,6 +170,7 @@ parseIf = do
     elsestate <- parseElse
     return $ If cond state elsestate
 
+--else節のパース
 parseElse :: Parser Statement
 parseElse = do
     reserved "else"
@@ -159,6 +178,7 @@ parseElse = do
     return state
     <|> return NullExp
 
+--while文のパース
 parseWhile :: Parser Statement
 parseWhile = do
     reserved "while"
@@ -166,6 +186,7 @@ parseWhile = do
     state <- parseStatement
     return $ While cond state
 
+--return文のパース
 parseReturn :: Parser Statement
 parseReturn = do
     reserved "return"
@@ -173,27 +194,32 @@ parseReturn = do
     lexeme semi
     return $ Return exp
 
+--programのパース
 parseProgram :: Parser [Program]
 parseProgram = parseExternalDeclaration `sepBy1` whiteSpace
     <?> "Program"
 
+--external-declarationのパース
 parseExternalDeclaration :: Parser Program
 parseExternalDeclaration = try (do dec <- parseDeclaration
 			           return (PDecl dec))
     <|> do func <- parseFunctionDefinition
            return $ PFunc func
-    
+
+--数字または識別子のパース
 parseVar :: Parser CVal
 parseVar = parseNumber
            <|> do i <- parseIdentifier
 	          return $ Ident i
 	   <?> "Var"    
 
+--識別子のパース
 parseIdentifier :: Parser Identifier
 parseIdentifier = do name <- identifier
 		     return $ Identifier name
 		  <?> "Identifier"
 
+--function-definitionのパース
 parseFunctionDefinition :: Parser Function
 parseFunctionDefinition = do
     reserved "int"
@@ -201,13 +227,15 @@ parseFunctionDefinition = do
     param <- parens parseParameterTypeList
     body <- parseCompoundStatement
     return $ Func CInt name param body
-	   
+
+--parameter-type-listのパース
 parseParameterTypeList :: Parser ParamDecl
 parseParameterTypeList = do
     pd <- parseParameterDeclaration `sepBy` comma
     return $ ParameterDecl pd
     <?> "ParameterTypeList"
     
+--parameter-declarationのパース
 parseParameterDeclaration :: Parser Variation
 parseParameterDeclaration = do
     reserved "int"
@@ -215,10 +243,12 @@ parseParameterDeclaration = do
     return p
     <?> "ParameterDeclaration"    
 
+--declaration-listのパース
 parseDeclarationList :: Parser [Statement]
 parseDeclarationList = many parseDeclaration
     <?> "DeclarationList"
     
+--declarationのパース
 parseDeclaration :: Parser Statement
 parseDeclaration = do
     reserved "int"
@@ -227,18 +257,21 @@ parseDeclaration = do
     return pl
     <?> "Declaration"
     
+--declaratorのパース
 parseDeclarator :: Parser Variation
 parseDeclarator = do
     v <- parseIdentifier
     return $ Variation CInt v
     <?> "Declarator"
     
+--declarator-listのパース
 parseDeclaratorList :: Parser Statement
 parseDeclaratorList = do
     p <- parseDeclarator `sepBy1` comma
     return $ Declaration p
     <?> "DeclaratorList"
 
+--compound-statementのパース
 parseCompoundStatement :: Parser Statement
 parseCompoundStatement =
     do symbol "{"
@@ -248,9 +281,11 @@ parseCompoundStatement =
        return $ CompoundStatement $ dl ++ sl
     <?> "CompoundStatement"
 
+--数字のパース
 parseNumber :: Parser CVal
 parseNumber = liftM (Number . read) $ many1 digit
 
+--型のパース
 parseType :: Parser Type
 parseType = (reserved "int" >> return CInt)
             <|> (reserved "void" >> return CVoid)
