@@ -1,5 +1,6 @@
 module Syntax.AST where
 
+import qualified Data.Map as Map
 import Syntax.Type
 
 data Identifier = Identifier String
@@ -41,7 +42,38 @@ data Statement = NullExp
 	       | Declaration [Variation]
                | CompoundStatement [Statement]
 
-data Function = Func Type Identifier [Variation] Statement
+data ParamDecl = ParameterDecl [Variation]
+instance Show ParamDecl where
+    show (ParameterDecl var) = unwordsList var
+    
+data Function = Func Type Identifier ParamDecl Statement
+
+data FuncObj = FuncObj {
+    fname :: String,
+    params :: [String],
+    paramTypes :: [SType],
+    returnType :: SType }
+    deriving (Show)
+    
+data VarObj = VarObj {
+    vname :: String,
+    vType :: SType }
+    deriving (Show)
+
+data SVal = SFunc FuncObj
+          | SVariation VarObj
+	  deriving (Show)
+
+data SType = SInt
+           | SVoid
+	   | SUndefined
+	   deriving(Show)
+
+convT :: Type -> SType
+convT CInt = SInt
+convT CVoid = SVoid
+	  
+type GlobalSValTable = Map.Map String SVal
 
 data Program = PDecl Statement
              | PFunc Function
@@ -96,4 +128,4 @@ showStatement (CompoundStatement state) = "(" ++ unwordsList state ++ ")"
 instance Show Statement where show = showStatement
 
 instance Show Function where
-    show (Func t ident var state) = "(" ++ show t ++ " " ++ show ident ++ " (" ++ unwordsList var ++ ") " ++ show state ++ ")"
+    show (Func t ident var state) = "(" ++ show t ++ " " ++ show ident ++ " (" ++ show var ++ ") " ++ show state ++ ")"

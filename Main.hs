@@ -3,6 +3,7 @@ module Main where
 import Text.ParserCombinators.Parsec
 import System.Environment
 
+import SemanticChecker.TinyCChecker
 import Parser.TinyCParser
 import Syntax.AST
 import Syntax.Type

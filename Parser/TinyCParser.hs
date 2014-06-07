@@ -195,8 +195,10 @@ parseFunctionDefinition = do
     body <- parseCompoundStatement
     return $ Func CInt name param body
 	   
-parseParameterTypeList :: Parser [Variation]
-parseParameterTypeList = parseParameterDeclaration `sepBy` comma
+parseParameterTypeList :: Parser ParamDecl
+parseParameterTypeList = do
+    pd <- parseParameterDeclaration `sepBy` comma
+    return $ ParameterDecl pd
     <?> "ParameterTypeList"
     
 parseParameterDeclaration :: Parser Variation
