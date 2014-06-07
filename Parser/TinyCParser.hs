@@ -11,32 +11,39 @@ import Syntax.Type
 
 --TinyCの言語仕様
 tinyCStyle = emptyDef {
-	   commentStart   = "/*"
-           , commentEnd     = "*/"
-           , commentLine    = "//"
-           , nestedComments = True
-           , identStart     = letter <|> char '_'
-           , identLetter    = alphaNum <|> oneOf "_"
-           , opStart        = opLetter emptyDef
-           , opLetter       = oneOf ":!#$%&*+./<=>?@\\^|-~"
-           , reservedOpNames= []
-           , reservedNames  = ["if", "else", "while", "return", "int", "void"]
-           , caseSensitive  = True
+	   commentStart   = "/*" --複数行コメントの開始
+           , commentEnd     = "*/" --複数行コメントの終わり
+           , commentLine    = "//" --コメントライン
+           , nestedComments = True --複数行コメントを許す
+           , identStart     = letter <|> char '_' --識別子の開始
+           , identLetter    = alphaNum <|> oneOf "_" --識別子の利用可能文字
+           , opStart        = opLetter emptyDef --演算子の開始
+           , opLetter       = oneOf ":!#$%&*+./<=>?@\\^|-~" --演算子の利用可能文字
+           , reservedOpNames= [] --拒絶される演算子
+           , reservedNames  = ["if", "else", "while", "return", "int", "void"] --拒絶される識別子名
+           , caseSensitive  = True --大文字と小文字を区別するか
            }
 
+--tinyCStyleに則る
 lexer :: Token.TokenParser ()
 lexer  = Token.makeTokenParser tinyCStyle
 
+--空白が1個以上のパース
 whiteSpace :: Parser () 
 whiteSpace = Token.whiteSpace lexer
+--空白つきの何かのパース
 lexeme     :: Parser a -> Parser a
 lexeme     = Token.lexeme lexer  
+--シンボルのパース
 symbol     :: String -> Parser String
 symbol     = Token.symbol lexer
+--数字のパース
 natural    :: Parser Integer
 natural    = Token.natural lexer
+--識別子のパース
 identifier :: Parser String
 identifier = Token.identifier lexer
+--拒絶のパース
 reserved   :: String -> Parser ()
 reserved   = Token.reserved lexer
 operator   :: Parser String
