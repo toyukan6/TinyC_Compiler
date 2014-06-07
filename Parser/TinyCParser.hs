@@ -9,6 +9,7 @@ import Text.ParserCombinators.Parsec.Language
 import Syntax.AST
 import Syntax.Type
 
+--TinyCの言語仕様
 tinyCStyle = emptyDef {
 	   commentStart   = "/*"
            , commentEnd     = "*/"
