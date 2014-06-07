@@ -77,7 +77,8 @@ table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft, op "%" Mod AssocLeft]
              = Infix (do{ reservedOp s; return f}) assoc
 
 parseExpression :: Parser CVal
-parseExpression = do assign <- parseAssignExpr `sepBy1` comma
+parseExpression = do whiteSpace
+		     assign <- (lexeme parseAssignExpr) `sepBy1` comma
                      return (f assign)
 		     <?> "Expression"
     where f (x : []) = x
@@ -91,18 +92,16 @@ parseAssignExpr = try parseSubstitution
 
 parseSubstitution :: Parser CVal
 parseSubstitution = do
-    whiteSpace
-    i <- parseIdentifier
-    whiteSpace >> reservedOp "=" >> whiteSpace
-    r <- parseAssignExpr
+    i <- lexeme parseIdentifier
+    reservedOp "="
+    r <- lexeme parseAssignExpr
     return $ Assign i r
     <?> "Substitution"
 
 parseUnaryExpr :: Parser CVal
-parseUnaryExpr = try parsePostfixExpr
-    <|> do whiteSpace >> char '-'
-           ue <- parseUnaryExpr
-	   whiteSpace
+parseUnaryExpr = parsePostfixExpr
+    <|> do char '-'
+           ue <- lexeme parseUnaryExpr
 	   return $ Minus ue
     <?> "UnaryExpr"
 
@@ -113,7 +112,7 @@ parsePostfixExpr = try parseCalFunc
 
 parseCalFunc :: Parser CVal
 parseCalFunc = do
-    i <- parseIdentifier
+    i <- lexeme parseIdentifier
     arl <- parens parseArgumentExpressionList
     return $ CalFunc i arl
     <?> "CalFunc"
@@ -133,16 +132,16 @@ parseStatementList = many parseStatement
     
 parseStatement :: Parser Statement
 parseStatement =
-    try (do whiteSpace >> semi
-            return NullExp)
-    <|> try (do exp <- parseExpression
-                whiteSpace >> semi
-                return (Expression exp))
-    <|> try (do cs <- parseCompoundStatement
-		return cs)
-    <|> try parseIf
-    <|> try parseWhile
-    <|> try parseReturn
+    do lexeme semi
+       return NullExp 
+    <|> parseIf
+    <|> parseWhile
+    <|> parseReturn
+    <|> do cs <- parseCompoundStatement
+           return cs
+    <|> do exp <- parseExpression
+           lexeme semi
+           return $ Expression exp
     <?> "Statement"
 
 parseIf :: Parser Statement
@@ -171,7 +170,7 @@ parseReturn :: Parser Statement
 parseReturn = do
     reserved "return"
     exp <- optionMaybe parseExpression
-    whiteSpace >> semi
+    lexeme semi
     return $ Return exp
 
 parseProgram :: Parser [Program]
@@ -224,7 +223,7 @@ parseDeclaration :: Parser Statement
 parseDeclaration = do
     reserved "int"
     pl <- parseDeclaratorList
-    whiteSpace >> semi
+    lexeme semi
     return pl
     <?> "Declaration"
     
