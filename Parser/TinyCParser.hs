@@ -196,7 +196,7 @@ parseReturn = do
 
 --programのパース
 parseProgram :: Parser [Program]
-parseProgram = parseExternalDeclaration `sepBy1` whiteSpace
+parseProgram = many parseExternalDeclaration
     <?> "Program"
 
 --external-declarationのパース
