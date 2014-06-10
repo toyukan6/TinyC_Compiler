@@ -3,11 +3,13 @@ module Syntax.AST where
 import qualified Data.Map as Map
 import Syntax.Type
 
+--識別子の型
 data Identifier = Identifier String
 
 instance Show Identifier where
     show (Identifier s) = s
 
+--パース結果の型
 data CVal = Atom String
 	  | Number Integer
 	  | Ident Identifier
@@ -29,11 +31,13 @@ data CVal = Atom String
 	  | L_AND CVal CVal
 	  | L_OR CVal CVal
 
+--変数の型
 data Variation = Variation Type Identifier
 
 instance Show Variation where
     show (Variation t ident) = "(" ++ show t ++ " " ++ show ident ++ ")"
-	  
+
+--statementのパース結果	  
 data Statement = NullExp
                | Expression CVal
 	       | If CVal Statement Statement
@@ -42,10 +46,12 @@ data Statement = NullExp
 	       | Declaration [Variation]
                | CompoundStatement [Statement]
 
+--パラメータ宣言の型
 data ParamDecl = ParameterDecl [Variation]
 instance Show ParamDecl where
     show (ParameterDecl var) = unwordsList var
-    
+
+--関数の型    
 data Function = Func Type Identifier ParamDecl Statement
 
 data FuncObj = FuncObj {
@@ -75,6 +81,7 @@ convT CVoid = SVoid
 	  
 type GlobalSValTable = Map.Map String SVal
 
+--プログラムの型
 data Program = PDecl Statement
              | PFunc Function
 
