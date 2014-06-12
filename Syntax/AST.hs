@@ -10,8 +10,7 @@ instance Show Identifier where
     show (Identifier s) = s
 
 --ƒp[ƒXŒ‹‰Ê‚ÌŒ^
-data CVal = Atom String
-	  | Number Integer
+data CVal = Number Integer
 	  | Ident Identifier
 	  | Minus CVal
 	  | CValList CVal CVal
