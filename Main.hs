@@ -14,5 +14,5 @@ main = do
    file <- readFile (head input)
    putStrLn $ case parse parseProgram "TinyC" file of
       Left err -> show err
-      Right val -> show val
+      Right val -> unwords . map ((++) "\n" . show) $ val
 

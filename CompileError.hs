@@ -9,7 +9,13 @@ data Warning = ParamShadow String
              | CallUndefineFunction String
 
 data SemanticError = UndefinedVariable String
-
+     		   | ReDeclaration String
+                   | ReDeclarationDifferentType String
+                   | TypeError String
+                   | FunctionCallWithVariable String
+                   | InvalidNumOfParameter Integer Integer
+		   deriving (Eq)
+		   
 data CompileError = ParseError PE.ParseError
                   | SemantError [CompileLog]
 
@@ -21,7 +27,7 @@ instance Show Warning where
     show (CallUndefineFunction s) = "call undefined function " ++ s
 
 instance Show SemanticError where
-    show (UndefinedVariable s) = "undefined variable " ++ s
+    show (UndefinedVariable s) = "undefined variable " ++ show s
     
 instance Show CompileError where
     show (ParseError err) = "Parse Error : " ++ show err

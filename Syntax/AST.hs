@@ -1,6 +1,5 @@
 module Syntax.AST where
 
-import qualified Data.Map as Map
 import Syntax.Type
 
 --Ž¯•ÊŽq‚ÌŒ^
@@ -53,33 +52,6 @@ instance Show ParamDecl where
 --ŠÖ”‚ÌŒ^    
 data Function = Func Type Identifier ParamDecl Statement
 
-data FuncObj = FuncObj {
-    fname :: String,
-    params :: [String],
-    paramTypes :: [SType],
-    returnType :: SType }
-    deriving (Show)
-    
-data VarObj = VarObj {
-    vname :: String,
-    vType :: SType }
-    deriving (Show)
-
-data SVal = SFunc FuncObj
-          | SVariation VarObj
-	  deriving (Show)
-
-data SType = SInt
-           | SVoid
-	   | SUndefined
-	   deriving(Show)
-
-convT :: Type -> SType
-convT CInt = SInt
-convT CVoid = SVoid
-	  
-type GlobalSValTable = Map.Map String SVal
-
 --ƒvƒƒOƒ‰ƒ€‚ÌŒ^
 data Program = PDecl Statement
              | PFunc Function
@@ -98,7 +70,6 @@ showExpr :: String -> CVal -> CVal -> String
 showExpr s c1 c2 = "(" ++ s ++ " " ++ show c1 ++ " " ++ show c2 ++ ")"
 
 showVal :: CVal -> String
-showVal (Atom name) = name
 showVal (Number n) = show n
 showVal (Ident ident) = show ident
 showVal (Minus n) = '-' : show n
@@ -129,7 +100,7 @@ showStatement (While cond state) = "(while " ++ show cond ++ " " ++ show state +
 showStatement (Return (Just state)) = "(return " ++ show state ++ ")"
 showStatement (Return Nothing) = "(return)"
 showStatement (Declaration var) = unwordsList var
-showStatement (CompoundStatement state) = "(" ++ unwordsList state ++ ")"
+showStatement (CompoundStatement state) = "(" ++ show state ++ ")"
 
 instance Show Statement where show = showStatement
 
