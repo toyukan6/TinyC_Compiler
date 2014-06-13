@@ -45,9 +45,9 @@ data Statement = NullExp
                | CompoundStatement [Statement]
 
 --ƒpƒ‰ƒ[ƒ^éŒ¾‚ÌŒ^
-data ParamDecl = ParameterDecl [Variation]
+data ParamDecl = ParamDecl [Variation]
 instance Show ParamDecl where
-    show (ParameterDecl var) = unwordsList var
+    show (ParamDecl var) = unwordsList var
 
 --ŠÖ”‚ÌŒ^    
 data Function = Func Type Identifier ParamDecl Statement
@@ -57,7 +57,7 @@ data Program = PDecl Statement
              | PFunc Function
 
 instance Show Program where
-    show (PDecl state) = show state
+    show (PDecl state) = showStatement state ""
     show (PFunc func) = show func
 
 unwordsList :: (Show a) => [a] -> String
@@ -92,17 +92,21 @@ showVal (L_OR n1 n2) = showExpr "or" n1 n2
 
 instance Show CVal where show = showVal
 
-showStatement :: Statement -> String
-showStatement NullExp = "()"
-showStatement (Expression val) = show val
-showStatement (If cond state1 state2) = "(if " ++ show cond ++ " " ++ show state1 ++ " " ++ show state2 ++ ")"
-showStatement (While cond state) = "(while " ++ show cond ++ " " ++ show state ++ ")"
-showStatement (Return (Just state)) = "(return " ++ show state ++ ")"
-showStatement (Return Nothing) = "(return)"
-showStatement (Declaration var) = unwordsList var
-showStatement (CompoundStatement state) = "(" ++ show state ++ ")"
-
-instance Show Statement where show = showStatement
+showStatement :: Statement -> String -> String
+showStatement NullExp str = str ++ "()"
+showStatement (Expression val) str = str ++ show val
+showStatement (If cond state1 state2) str = str ++ "(if " ++ show cond ++ "\n"
+                                            ++ showStatement state1 (str ++ "    ") ++ "\n"
+                                            ++ showStatement state2 (str ++ "    ") ++ ")"
+showStatement (While cond state) str = str ++ "(while " ++ show cond
+                                       ++ showStatement state (str ++ "    ") ++ ")"
+showStatement (Return (Just state)) str = str ++ "(return " ++ show state ++ ")"
+showStatement (Return Nothing) str = str ++ "(return)"
+showStatement (Declaration var) str = str ++ unwordsList var
+showStatement (CompoundStatement state) str =
+    "(\n" ++ init (unlines (map (`showStatement` str) state)) ++ ")"
 
 instance Show Function where
-    show (Func t ident var state) = "(" ++ show t ++ " " ++ show ident ++ " (" ++ show var ++ ") " ++ show state ++ ")"
+    show (Func t ident var state) = "(" ++ show t ++ " " ++ show ident ++ " (" ++ show var ++ ")" ++ showFuncBody state ++ ")"
+
+showFuncBody st = showStatement st "    "               

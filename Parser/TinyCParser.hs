@@ -232,7 +232,7 @@ parseFunctionDefinition = do
 parseParameterTypeList :: Parser ParamDecl
 parseParameterTypeList = do
     pd <- parseParameterDeclaration `sepBy` comma
-    return $ ParameterDecl pd
+    return $ ParamDecl pd
     <?> "ParameterTypeList"
     
 --parameter-declarationのパース

@@ -14,7 +14,7 @@ functionCheck :: Function -> SVal
 functionCheck func =
 -}
 makeSFunc :: Function -> SVal
-makeSFunc (Func tp (Identifier name) (ParameterDecl ps) _) =
+makeSFunc (Func tp (Identifier name) (ParamDecl ps) _) =
     SFunc FuncObj { fname = name,
                     params = snd $ mp ps,
                     paramTypes = fst $ mp ps,
