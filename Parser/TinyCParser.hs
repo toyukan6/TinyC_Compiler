@@ -111,7 +111,7 @@ parseSubstitution = do
 --unary-exprのパース
 parseUnaryExpr :: Parser CVal
 parseUnaryExpr = parsePostfixExpr
-    <|> do char '-'
+    <|> do char '-' >> whiteSpace
            ue <- lexeme parseUnaryExpr
 	   return $ Minus ue
     <?> "UnaryExpr"
