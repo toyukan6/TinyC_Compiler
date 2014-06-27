@@ -8,6 +8,7 @@ import Syntax.Type
 
 --à”ñ°âêÕå„ÇÃProgram
 data SVal = SFunc FuncObj
+          | STmpFunc TmpFuncObj
           | SDecl VarObj
 	  deriving (Show)
 
@@ -52,6 +53,13 @@ data SStatement = SNullExp
                 | SCompoundStatement [SStatement]
                 deriving (Show)
 
+data TmpFuncObj = TmpFuncObj {
+      tmpFname :: String,
+      tmpParams :: [String],
+      tmpParamTypes :: [SType],
+      tmpReturnType :: SType }
+      deriving (Show)
+
 data FuncObj = FuncObj {
     fname :: SIdentifier,
     params :: [VarObj],
@@ -60,7 +68,7 @@ data FuncObj = FuncObj {
     deriving (Show)
     
 data VarObj = VarObj {
-    vname :: SIdentifier,
+    vname :: String,
     vType :: SType,
     vAddress :: Integer,
     vLevel :: Integer }

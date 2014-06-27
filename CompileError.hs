@@ -36,12 +36,12 @@ instance Show Warning where
 
 instance Show SemanticError where
     show (UndefinedVariable s) = "undefined variable " ++ s
-    show (ReDeclaration s) = "redeclaration of" ++ s
+    show (ReDeclaration s) = "redeclaration of " ++ s
     show (ReDeclarationDifferentType s) = "redeclaration of different type : " ++ s
     show (TypeError s) = "TypeError : " ++ s
-    show (FunctionCallWithVariable s) = s ++ "is not a function"
-    show (VariableWithFunctionCall s) = s ++ "is a function"
-    show (InvalidNumOfParameter s expect given) = s ++ "is expected " ++ show expect ++ " parameters, but " ++ show given ++ " parameters given"
+    show (FunctionCallWithVariable s) = s ++ " is not a function"
+    show (VariableWithFunctionCall s) = s ++ " is a function"
+    show (InvalidNumOfParameter s expect given) = s ++ " is expected " ++ show expect ++ " parameters, but " ++ show given ++ " parameters given"
     
 instance Show CompileLog where
     show (Err sem) = show sem

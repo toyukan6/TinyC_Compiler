@@ -8,11 +8,17 @@ import Parser.TinyCParser
 import Syntax.AST
 import Syntax.Type
 
-test :: (Show a) => Parser a -> String -> IO ()
-test parser input = 
-   putStrLn $ case parse parser "TinyC" input of
-      Left err -> show err
-      Right val -> show val
+checker :: String -> IO ()
+checker input = do
+  p <- parser input
+  putStrLn . show . createTable $ p
+
+parser :: String -> IO [Program]
+parser input = do
+  file <- readFile input
+  case parse parseProgram "TinyC" file of
+     Left _ -> return []
+     Right val -> return val
 
 main :: IO ()
 main = do

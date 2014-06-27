@@ -9,70 +9,77 @@ import CompileError
 import Syntax.AST
 import Syntax.Type
 import Syntax.Semantic
-{-
 
-addStack :: Stack -> (Integer, String, Integer) -> Stack
-addStack stack s = s : stack
-    
+createTable :: [Program] -> ([CompileLog], GlobalSValTable)
 createTable program = collectGlobalSVals Map.empty [] program
 
 collectGlobalSVals :: GlobalSValTable -> [CompileLog]
 		      		      -> [Program]
-				      -> (GlobalSValTable, [CompileLog])
-collectGlobalSVals gtable compileLog [] = (gtable, compileLog)
+				      -> ([CompileLog], GlobalSValTable)
+collectGlobalSVals gtable clog [] = (clog, gtable)
 collectGlobalSVals gtable compileLog (PFunc func : xs) =
-    let val@(SFunc sfunc) = makeSFunc func
-    in if Map.member (fname sfunc) gtable
-       then collectGlobalSVals gtable (addRedeclarationError compileLog (fname sfunc)) xs
-       else collectGlobalSVals (Map.insert (fname sfunc) val gtable) compileLog xs
-collectGlobalSVals gtable compileLog (PDecl decl@(Declaration varlist):xs) =
-    let (newtable, log') = sub gtable compileLog varlist
-    in collectGlobalSVals newtable log' xs
-    where sub table log [] = (table, log)
-          sub table log (v@(Variation t (Identifier name)) : vs) =
-              if Map.member name table
-              then sub table (addRedeclarationError log name) vs
-              else sub (Map.insert name (makeGlobalSDecl v) table) log vs
+    let (clog, table) = makeSFunc gtable func
+    in  collectGlobalSVals table (compileLog ++ clog) xs
+collectGlobalSVals gtable compileLog (PDecl (Declaration varlist):xs) =
+    let (clog, gtable') = sub gtable compileLog varlist
+    in collectGlobalSVals gtable' (compileLog ++ clog) xs
+    where sub table log [] = (log, table)
+          sub table log (v : vs) =
+              let (log', table') = makeGlobalSDecl table v
+                  (log'', table'') = sub table' log' vs
+              in (log ++ log'', table'')
 
-makeSFunc :: GlobalSValTable -> Function -> SVal
-makeSFunc gtable (Func tp (Identifier name) ps cs) =
-    let (css, pd) = makeSParameter (addLevel initialState) ps
-        (css', cs') = makeSStatement gtable css cs
-    in SFunc FuncObj { fname = SIdentifier { name = name, level = 0 },
-                       params = pd,
-                       returnType = convT tp,
-                       body = makeSStatement gtable css cs}
--}
+makeSFunc :: GlobalSValTable -> Function
+                             -> ([CompileLog], GlobalSValTable)
+makeSFunc gtable func@(Func tp (Identifier name) ps cs) =
+    let tmp = makeSTmpFunction func
+        (css, pd) = makeSParameter (addLevel initialState) ps
+        (css', cs') = makeSStatement (Map.insert name tmp gtable) css cs
+    in case pd of
+         Left err -> ((++) (compileLog css') . (++) err . foldr (++) [] . lefts $ [cs'], gtable)
+         Right val -> case cs' of
+                        Left err -> ((++) err . compileLog $ css', gtable)
+                        Right val' -> let func = SFunc $ FuncObj (SIdentifier name 0) val (convT tp) val'
+                                      in (compileLog css', Map.insert name func gtable)
+
+makeSTmpFunction :: Function -> SVal
+makeSTmpFunction (Func tp (Identifier name) (ParamDecl pd) _) =
+    STmpFunc TmpFuncObj {
+                 tmpFname = name,
+                 tmpParams = map varName pd,
+                 tmpParamTypes = map (convT . varType) pd,
+                 tmpReturnType = convT tp}
+    where varName (Variation t (Identifier n)) = n
+          varType (Variation t (Identifier n)) = t
+
 makeSParameter :: CollectSValState -> ParamDecl
                                    -> (CollectSValState, Either [CompileLog] [VarObj])
 makeSParameter css (ParamDecl decl) = varlistToVarObjlist css decl
 
-makeGlobalSDecl :: Variation -> SVal
-makeGlobalSDecl (Variation tp (Identifier name)) =
-    SDecl VarObj { vname = SIdentifier { name = name, level = 0 },
-                   vType = convT tp,
-                   vAddress = 0,
-                   vLevel = 0 }
-
-makeSParamDecl :: CollectSValState -> Variation -> SVal
-makeSParamDecl css (Variation tp (Identifier name)) =
-    SDecl VarObj { vname = SIdentifier { name = name, level = 0 },
-                   vType = convT tp,
-                   vAddress = calcAdr (svalTable css) (stack css) 1,
-                   vLevel = 1 }
+makeGlobalSDecl :: GlobalSValTable -> Variation
+                                   -> ([CompileLog], GlobalSValTable)
+makeGlobalSDecl gtable (Variation tp (Identifier name)) =
+    if Map.member name gtable
+    then ([Err $ ReDeclaration name], gtable)
+    else let decl = SDecl VarObj { vname = name,
+                                   vType = convT tp,
+                                   vAddress = 0,
+                                   vLevel = 0 }
+         in ([], Map.insert name decl gtable)
 
 type Stack = [(Integer, String, Integer)]
 
 addStack :: Stack -> Integer -> String -> Stack
 addStack s lev name = (lev, name, toInteger . length $ s) : s
 
-redeclCheck :: Stack -> String -> Maybe CompileLog
-redeclCheck stack var =
-    case findSValinStack stack var of
+redeclCheck :: Stack -> VarObj -> Maybe CompileLog
+redeclCheck stack var@(VarObj varname _ _ _) =
+    case findSValinStack stack varname of
       (-1, -1) -> Nothing
-      (i, k) -> if i == 1
-                then Just $ War $ ParamShadow var
-                else Just $ Err $ ReDeclaration var
+      (1, k) -> Just $ War $ ParamShadow $ varname
+      (i, k) -> if i == (vLevel var)
+                then Just $ Err $ ReDeclaration $ varname
+                else Nothing
 
 findSValinStack :: Stack -> String -> (Integer, Integer)
 findSValinStack stack str = case find f stack of
@@ -93,7 +100,7 @@ data CollectSValState = CSS { stack :: Stack,
 
 insertSVal :: CollectSValState -> SVal -> CollectSValState
 insertSVal css sval@(SDecl var) =
-    CSS { stack = addStack (stack css) (lev css) (name . vname $ var),
+    CSS { stack = addStack (stack css) (lev css) (vname var),
           svalTable = Map.insert (toInteger $ Map.size $ svalTable css) sval (svalTable css),
           compileLog = compileLog css,
           lev = lev css }
@@ -131,7 +138,7 @@ initialState = CSS { stack = [], svalTable = emptyTable, compileLog = [], lev = 
 
 makeLocalSDecl :: CollectSValState -> Variation -> SVal
 makeLocalSDecl css (Variation tp (Identifier name)) =
-    SDecl VarObj { vname = SIdentifier { name = name, level = lev css },
+    SDecl VarObj { vname = name,
                    vType = convT tp,
                    vAddress = calcAdr (svalTable css) (stack css) (lev css),
                    vLevel = lev css }
@@ -146,6 +153,7 @@ makeSCVal gtable css (Ident (Identifier name)) =
           case Map.lookup name gtable of
             Nothing -> (css, Left [Err . UndefinedVariable $ name])
             Just (SFunc f) -> (css, Left [Err . VariableWithFunctionCall $ name])
+            Just (STmpFunc f) -> (css, Left [Err . VariableWithFunctionCall $ name])
             Just (SDecl d) ->
                 (css, Right $ SIdent SIdentifier { name = name, level = 0 })
       (l, i) -> (css, Right $ SIdent SIdentifier { name = name, level = l })
@@ -171,11 +179,19 @@ makeSCVal gtable css (CalFunc (Identifier name) param) =
                   then (css, Right $ SCalFunc (SIdentifier name 0) $ param')
                   else (css, Left logs)
              else (css, Left $ (Err . InvalidNumOfParameter name expectLength $ givenLength) : logs)
+      Just (STmpFunc func) ->
+          let expectLength = toInteger . length . tmpParams $ func
+              givenLength = toInteger . length $ param
+          in if expectLength == givenLength
+             then if null logs
+                  then (css, Right $ SCalFunc (SIdentifier name 0) $ param')
+                  else (css, Left logs)
+             else (css, Left $ (Err . InvalidNumOfParameter name expectLength $ givenLength) : logs)
       Just (SDecl var) ->
           (css, Left $ (Err . FunctionCallWithVariable $ name) : logs)
     where scvals' = map (makeSCVal gtable css) param
           param' = map fromRight . filter isRight . map snd $ scvals'
-          logs = foldr1 (++) . lefts . map snd $ scvals'
+          logs = foldr (++) [] . lefts . map snd $ scvals'
 
 makeSCVal gtable css (Assign (Identifier name) val) =
     case findSValinStack (stack css) name of
@@ -187,16 +203,16 @@ makeSCVal gtable css (Assign (Identifier name) val) =
                      Left err' ->
                          (css, Left $ err : err')
                      Right _ -> (css, Left [err])
-            Just (SFunc f) ->
+            Just (SDecl d) ->
+                case scvals' of
+                  Left err' -> (css, Left err')
+                  Right val' -> (css, Right $ SAssign (SIdentifier name 0) val')
+            Just _ ->
                 let err = Err . VariableWithFunctionCall $ name
                 in case scvals' of
                      Left err' ->
                          (css, Left $ err : err')
                      Right _ -> (css, Left [err])
-            Just (SDecl d) ->
-                case scvals' of
-                  Left err' -> (css, Left err')
-                  Right val' -> (css, Right $ SAssign (SIdentifier name 0) val')
       (l, i) ->
           case scvals' of
             Left err' -> (css, Left err')
@@ -231,10 +247,7 @@ makeSCValExpr gtable css cval1 cval2 constructor =
         vals = rights vlist
     in if all isRight vlist
        then (css'', Right $ constructor (vals !! 0) (vals !! 1))
-       else (css'', Left $ foldr1 (++) errs)
-
-makeSCValTest :: CVal -> String
-makeSCValTest = show . makeSCVal Map.empty initialState 
+       else (css'', Left $ foldr (++) [] errs)
 
 makeSStatement :: GlobalSValTable -> CollectSValState
                                   -> Statement
@@ -253,22 +266,22 @@ makeSStatement gtable css (If cond state1 state2) = f scond
           (css''', sstate2) = makeSStatement gtable css'' state2
           statelist = [sstate1, sstate2]
           f (Left err1) =
-              (css''', Left $ (++) err1 . foldr1 (++) . lefts $ statelist)
+              (css''', Left $ (++) err1 . foldr (++) [] . lefts $ statelist)
           f (Right condition) =
               if all isRight statelist
               then (css''', Right $ SIf 0 condition ((rights statelist) !! 0) ((rights statelist) !! 1 ))
-              else (css''', Left $ foldr1 (++) . lefts $ statelist)
+              else (css''', Left $ foldr (++) [] . lefts $ statelist)
 
 makeSStatement gtable css (While cond state) = f scond
     where (css', scond) = makeSCVal gtable css cond
           (css'', sstate) = makeSStatement gtable css' state
           statelist = [sstate]
           f (Left err1) =
-              (css'', Left $ (++) err1 . foldr1 (++) . lefts $ statelist)
+              (css'', Left $ (++) err1 . foldr (++) [] . lefts $ statelist)
           f (Right condition) =
               if all isRight statelist
               then (css'', Right $ SWhile 0 condition $ head . rights $ statelist)
-              else (css'', Left $ foldr1 (++) . lefts $ statelist)
+              else (css'', Left $ foldr (++) [] . lefts $ statelist)
 
 makeSStatement gtable css (Return Nothing) = (css, Right $ SReturn 0 Nothing)
 makeSStatement gtable css (Return (Just val)) =
@@ -305,13 +318,13 @@ varlistToVarObjlist css (var : vars) =
         (css'', vars') = varlistToVarObjlist css' vars
         objlist = var' : [vars']
     in if any isLeft objlist
-       then (css'', Left $ foldr1 (++) . lefts $ objlist)
-       else (css'', Right $ foldr1 (++) . rights $ objlist)
+       then (css'', Left $ foldr (++) [] . lefts $ objlist)
+       else (css'', Right $ foldr (++) [] . rights $ objlist)
 
 checkAndInsert :: CollectSValState -> SVal
                                    -> (CollectSValState, Maybe CompileLog)
 checkAndInsert css decl@(SDecl var) =
-    case redeclCheck (stack css) (name . vname $ var) of
+    case redeclCheck (stack css) var of
       Nothing -> (insertSVal css decl, Nothing)
       Just clog -> if isErr clog
                    then (css, Just clog)
@@ -330,7 +343,7 @@ stateListToSStateList gtable css (s : ss) =
     let (css', s') = makeSStatement gtable css s
         (css'', ss') = stateListToSStateList gtable css' ss
     in case s' of
-         Left err -> (css'', Left $ (++) err . foldr1 (++) . lefts $ [ss'])
+         Left err -> (css'', Left $ (++) err . foldr (++) [] . lefts $ [ss'])
          Right val -> case ss' of
                         Left err -> (css'', Left $ err)
                         Right vals -> (css'', Right $ val : vals)
@@ -354,11 +367,3 @@ containLeft = any isLeft
 
 containNothing :: [Maybe a] -> Bool
 containNothing = any isNothing
---makeSCVal (CalFunc                               
-{-
-instance CollectSValTable Variation where
-    collectingTable table css (Variation tp (Identifier name)) =
-        case redeclCheck name (stack css) of
-            Nothing -> 
-            Just log -> 
--}
