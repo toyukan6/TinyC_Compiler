@@ -70,7 +70,7 @@ comma      = Token.comma lexer
 
 --logical-OR-exprからmult-exprまでのパース
 parseLogicalORExpr    :: Parser CVal
-parseLogicalORExpr    = buildExpressionParser table parseUnaryExpr
+parseLogicalORExpr    = buildExpressionParser table (lexeme parseUnaryExpr)
     <?> "LogialORExpr"
 
 --演算子のパースとそのとき実行する関数のリスト
@@ -102,9 +102,9 @@ parseAssignExpr = try parseSubstitution
 --substitutionのパース
 parseSubstitution :: Parser CVal
 parseSubstitution = do
-    i <- lexeme parseIdentifier
+    i <- parseIdentifier
     reservedOp "="
-    r <- lexeme parseAssignExpr
+    r <- parseAssignExpr
     return $ Assign i r
     <?> "Substitution"
 
