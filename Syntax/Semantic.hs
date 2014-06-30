@@ -69,15 +69,15 @@ showSExpr s c1 c2 = "(" ++ s ++ " " ++ show c1 ++ " " ++ show c2 ++ ")"
 
 data SStatement = SNullExp
                 | SExpression SCVal
-                | SIf { tag :: Integer,
+                | SIf { itag :: Integer,
                         condition :: SCVal,
                         state1 :: SStatement,
                         elsestate ::  SStatement }
-                | SWhile { tag :: Integer,
+                | SWhile { wtag :: Integer,
                            condition :: SCVal,
                            state :: SStatement }
-                | SReturn { tag :: Integer,
-                            exp :: (Maybe SCVal) }
+                | SReturn { rtag :: Integer,
+                            rexp :: (Maybe SCVal) }
                 | SDeclaration [VarObj]
                 | SCompoundStatement [SStatement]
 

@@ -98,7 +98,8 @@ modifyStack s@((l,_,_,_):ss) lev | lev < l = modifyStack ss lev
 data CollectSValState = CSS { stack :: Stack,
                               svalTable :: SValTable,
                               compileLog :: [CompileLog],
-                              lev :: Integer }
+                              lev :: Integer,
+                              tag :: Integer }
                         deriving (Show)
 
 insertSVal :: CollectSValState -> SVal -> CollectSValState
@@ -106,27 +107,55 @@ insertSVal css sval@(SDecl var) =
     CSS { stack = addStack (stack css) (lev css) (vAddress var) (vname  var),
           svalTable = Map.insert (toInteger $ Map.size $ svalTable css) sval (svalTable css),
           compileLog = compileLog css,
-          lev = lev css }
+          lev = lev css,
+          tag = tag css}
+
+addLog :: CollectSValState -> CompileLog -> CollectSValState
+addLog table log =
+    CSS { stack = stack table,
+          svalTable = svalTable table,
+          compileLog = log : compileLog table,
+          lev = lev table,
+          tag = tag table}
 
 addLevel :: CollectSValState -> CollectSValState
 addLevel css =
     CSS { stack = stack css,
           svalTable = svalTable css,
           compileLog = compileLog css,
-          lev = lev css + 1 }
+          lev = lev css + 1,
+          tag = tag css}
 
 downLevel :: CollectSValState -> CollectSValState
 downLevel css =
     CSS { stack = modifyStack (stack css) (lev css - 1),
           svalTable = svalTable css,
           compileLog = compileLog css,
-          lev = lev css - 1 }
+          lev = lev css - 1,
+          tag = tag css}
 
-addLog :: CollectSValState -> CompileLog -> CollectSValState
-addLog table log = CSS { stack = stack table,
-                         svalTable = svalTable table,
-                         compileLog = log : compileLog table,
-                         lev = lev table }
+increTag :: CollectSValState -> CollectSValState
+increTag css = 
+    CSS { stack = stack css,
+          svalTable = svalTable css,
+          compileLog = compileLog css,
+          lev = lev css,
+          tag = tag css + 1}
+
+initialState :: CollectSValState
+initialState =
+    CSS { stack = [],
+          svalTable = emptyTable,
+          compileLog = [],
+          lev = 0,
+          tag = 0 }
+
+makeLocalSDecl :: CollectSValState -> Variation -> SVal
+makeLocalSDecl css (Variation tp (Identifier name)) =
+    SDecl VarObj { vname = name,
+                   vType = convT tp,
+                   vAddress = calcAdr (svalTable css) (stack css) (lev css),
+                   vLevel = lev css }
 
 calcAdr :: SValTable -> Stack -> Integer -> Integer
 calcAdr table stack lv
@@ -135,16 +164,6 @@ calcAdr table stack lv
     where f size (_, _, _, k) = (+) size . sizeOf . fromJust . Map.lookup k $ table
           g size (i, _, _, k) | i == 1 = size
                            | otherwise = (-) size . sizeOf . fromJust . Map.lookup k $ table
-                             
-initialState :: CollectSValState
-initialState = CSS { stack = [], svalTable = emptyTable, compileLog = [], lev = 0 }
-
-makeLocalSDecl :: CollectSValState -> Variation -> SVal
-makeLocalSDecl css (Variation tp (Identifier name)) =
-    SDecl VarObj { vname = name,
-                   vType = convT tp,
-                   vAddress = calcAdr (svalTable css) (stack css) (lev css),
-                   vLevel = lev css }
 
 makeSCVal :: GlobalSValTable -> CollectSValState
                              -> CVal
@@ -272,7 +291,11 @@ makeSStatement gtable css (If cond state1 state2) = f scond
               (css''', Left $ (++) err1 . foldr (++) [] . lefts $ statelist)
           f (Right condition) =
               if all isRight statelist
-              then (css''', Right $ SIf 0 condition ((rights statelist) !! 0) ((rights statelist) !! 1 ))
+              then (increTag css''',
+                             Right $ SIf { itag = tag css''',
+                                           condition = condition,
+                                           state1 = (rights statelist) !! 0,
+                                           elsestate = (rights statelist) !! 1 })
               else (css''', Left $ foldr (++) [] . lefts $ statelist)
 
 makeSStatement gtable css (While cond state) = f scond
@@ -283,7 +306,10 @@ makeSStatement gtable css (While cond state) = f scond
               (css'', Left $ (++) err1 . foldr (++) [] . lefts $ statelist)
           f (Right condition) =
               if all isRight statelist
-              then (css'', Right $ SWhile 0 condition $ head . rights $ statelist)
+              then (increTag css'',
+                             Right $ SWhile { wtag = tag css'',
+                                              condition = condition,
+                                              state = head . rights $ statelist })
               else (css'', Left $ foldr (++) [] . lefts $ statelist)
 
 makeSStatement gtable css (Return Nothing) = (css, Right $ SReturn 0 Nothing)
@@ -291,7 +317,8 @@ makeSStatement gtable css (Return (Just val)) =
     let (css', sval) = makeSCVal gtable css val
     in case sval of
          Left err -> (css', Left err)
-         Right val' -> (css', Right $ SReturn 0 $ Just val')
+         Right val' -> (increTag css', Right $ SReturn { rtag = tag css',
+                                                         rexp = Just val' })
 
 makeSStatement _ css (Declaration decls) =
     let (css', objs) = varlistToVarObjlist css decls
