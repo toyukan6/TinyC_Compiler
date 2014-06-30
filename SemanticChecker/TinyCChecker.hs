@@ -36,7 +36,8 @@ makeSFunc gtable func@(Func tp (Identifier name) ps cs) =
         (css, pd) = makeSParameter (addLevel initialState) ps
         (css', cs') = makeSStatement (Map.insert name tmp gtable) css cs
     in case pd of
-         Left err -> ((++) (compileLog css') . (++) err . foldr (++) [] . lefts $ [cs'], gtable)
+         Left err ->
+             ((++) (compileLog css') . (++) err . foldr (++) [] . lefts $ [cs'], gtable)
          Right val -> case cs' of
                         Left err -> ((++) err . compileLog $ css', gtable)
                         Right val' -> let func = SFunc $ FuncObj (SIdentifier name 0) val (convT tp) val'
@@ -67,30 +68,32 @@ makeGlobalSDecl gtable (Variation tp (Identifier name)) =
                                    vLevel = 0 }
          in ([], Map.insert name decl gtable)
 
-type Stack = [(Integer, String, Integer)]
+type Stack = [(Integer, Integer, String, Integer)]
 
-addStack :: Stack -> Integer -> String -> Stack
-addStack s lev name = (lev, name, toInteger . length $ s) : s
+addStack :: Stack -> Integer -> Integer -> String -> Stack
+addStack s lev address name = (lev, address, name, toInteger . length $ s) : s
 
 redeclCheck :: Stack -> VarObj -> Maybe CompileLog
 redeclCheck stack var@(VarObj varname _ _ _) =
     case findSValinStack stack varname of
-      (-1, -1) -> Nothing
-      (1, k) -> Just $ War $ ParamShadow $ varname
-      (i, k) -> if i == (vLevel var)
-                then Just $ Err $ ReDeclaration $ varname
-                else Nothing
+      (-1, -1, -1) -> Nothing
+      (1, _, k) -> if 1 == (vLevel var)
+                   then Just $ Err $ ReDeclaration $ varname
+                   else Just $ War $ ParamShadow $ varname
+      (i, _, k) -> if i == (vLevel var)
+                   then Just $ Err $ ReDeclaration $ varname
+                   else Nothing
 
-findSValinStack :: Stack -> String -> (Integer, Integer)
+findSValinStack :: Stack -> String -> (Integer, Integer, Integer)
 findSValinStack stack str = case find f stack of
-    Nothing -> (-1, -1)
-    Just (l, _, i) -> (l, i)
-    where f (_, x, _) = x == str
+    Nothing -> (-1, -1, -1)
+    Just (l, a, _, i) -> (l, a, i)
+    where f (_, _, x, _) = x == str
 
 modifyStack :: Stack -> Integer -> Stack
 modifyStack [] _ = []
-modifyStack s@((l,_,_):ss) lev | lev < l = modifyStack ss lev
-                               | otherwise = s
+modifyStack s@((l,_,_,_):ss) lev | lev < l = modifyStack ss lev
+                                 | otherwise = s
 
 data CollectSValState = CSS { stack :: Stack,
                               svalTable :: SValTable,
@@ -100,7 +103,7 @@ data CollectSValState = CSS { stack :: Stack,
 
 insertSVal :: CollectSValState -> SVal -> CollectSValState
 insertSVal css sval@(SDecl var) =
-    CSS { stack = addStack (stack css) (lev css) (vname var),
+    CSS { stack = addStack (stack css) (lev css) (vAddress var) (vname  var),
           svalTable = Map.insert (toInteger $ Map.size $ svalTable css) sval (svalTable css),
           compileLog = compileLog css,
           lev = lev css }
@@ -129,8 +132,8 @@ calcAdr :: SValTable -> Stack -> Integer -> Integer
 calcAdr table stack lv
     | lv == 1 = foldl f 8 stack
     | otherwise = foldl g (negate 4) stack
-    where f size (i, l, k) = (+) size . sizeOf . fromJust . Map.lookup k $ table
-          g size (i, l, k) | i == 1 = size
+    where f size (_, _, _, k) = (+) size . sizeOf . fromJust . Map.lookup k $ table
+          g size (i, _, _, k) | i == 1 = size
                            | otherwise = (-) size . sizeOf . fromJust . Map.lookup k $ table
                              
 initialState :: CollectSValState
@@ -149,14 +152,14 @@ makeSCVal :: GlobalSValTable -> CollectSValState
 makeSCVal _ css (Number n) = (css, Right $ SNumber n)
 makeSCVal gtable css (Ident (Identifier name)) =
     case findSValinStack (stack css) name of
-      (-1, -1) ->
+      (-1, -1, -1) ->
           case Map.lookup name gtable of
             Nothing -> (css, Left [Err . UndefinedVariable $ name])
             Just (SFunc f) -> (css, Left [Err . VariableWithFunctionCall $ name])
             Just (STmpFunc f) -> (css, Left [Err . VariableWithFunctionCall $ name])
             Just (SDecl d) ->
-                (css, Right $ SIdent SIdentifier { name = name, level = 0 })
-      (l, i) -> (css, Right $ SIdent SIdentifier { name = name, level = l })
+                (css, Right $ SIdent SIdentifier { name = name, address = 0 })
+      (l, a, i) -> (css, Right $ SIdent SIdentifier { name = name, address = a })
                 
 makeSCVal gtable css (Minus val) =
     let (css', val') = makeSCVal gtable css val
@@ -195,7 +198,7 @@ makeSCVal gtable css (CalFunc (Identifier name) param) =
 
 makeSCVal gtable css (Assign (Identifier name) val) =
     case findSValinStack (stack css) name of
-      (-1, -1) ->
+      (-1, -1, -1) ->
           case Map.lookup name gtable of
             Nothing ->
                 let err = Err . UndefinedVariable $ name
@@ -213,10 +216,10 @@ makeSCVal gtable css (Assign (Identifier name) val) =
                      Left err' ->
                          (css, Left $ err : err')
                      Right _ -> (css, Left [err])
-      (l, i) ->
+      (l, a, i) ->
           case scvals' of
             Left err' -> (css, Left err')
-            Right val' -> (css, Right $ SAssign (SIdentifier name l) val')
+            Right val' -> (css, Right $ SAssign (SIdentifier name a) val')
     where scvals' = snd . makeSCVal gtable css $ val
 
 makeSCVal gtable css (CValList l ls) = makeSCValExpr gtable css l ls SCValList

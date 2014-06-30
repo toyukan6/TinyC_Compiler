@@ -22,13 +22,37 @@ data CompileLog = Err SemanticError
                 | War Warning
                 deriving (Eq)
 
+data CompileError = PError PE.ParseError
+                  | SError SemanticError
+                  | SWarning Warning
+
+instance Show CompileError where
+    show (PError err) = "Parse Error : " ++ show err
+    show (SError err) = show err
+    show (SWarning war) = show war
+
+logToError :: [CompileLog] -> [CompileError]
+logToError [] = []
+logToError (Err e:ls) = (:) (SError e) . logToError $ ls
+logToError (War w:ls) = (:) (SWarning w) . logToError $ ls
+
 isErr :: CompileLog -> Bool
 isErr (Err _) = True
 isErr (War _) = False
 
+errs :: [CompileLog] -> [SemanticError]
+errs [] = []
+errs (Err e:ls) = (:) e . errs $ ls
+errs (War w:ls) = errs ls
+
 isWar :: CompileLog -> Bool
 isWar (War _) = True
 isWar (Err _) = False
+
+wars :: [CompileLog] -> [Warning]
+wars [] = []
+wars (Err r: ls) = wars ls
+wars (War w:ls) = (:) w . wars $ ls
 
 instance Show Warning where
     show (ParamShadow ident) = "declaration of " ++ ident ++ " shadows a parameter"
