@@ -38,10 +38,12 @@ makeSFunc gtable func@(Func tp (Identifier name) ps cs) =
     in case pd of
          Left err ->
              ((++) (compileLog css') . (++) err . foldr (++) [] . lefts $ [cs'], gtable)
-         Right val -> case cs' of
-                        Left err -> ((++) err . compileLog $ css', gtable)
-                        Right val' -> let func = SFunc $ FuncObj (SIdentifier name 0) val (convT tp) val'
-                                      in (compileLog css', Map.insert name func gtable)
+         Right val ->
+             case cs' of
+               Left err -> ((++) err . compileLog $ css', gtable)
+               Right val' ->
+                   let func = SFunc $ FuncObj (SIdentifier name 0) val (convT tp) val'
+                   in (compileLog css', Map.insert name func gtable)
 
 makeSTmpFunction :: Function -> SVal
 makeSTmpFunction (Func tp (Identifier name) (ParamDecl pd) _) =
@@ -163,7 +165,7 @@ calcAdr table stack lv
     | otherwise = foldl g (negate 4) stack
     where f size (_, _, _, k) = (+) size . sizeOf . fromJust . Map.lookup k $ table
           g size (i, _, _, k) | i == 1 = size
-                           | otherwise = (-) size . sizeOf . fromJust . Map.lookup k $ table
+                              | otherwise = (-) size . sizeOf . fromJust . Map.lookup k $ table
 
 makeSCVal :: GlobalSValTable -> CollectSValState
                              -> CVal
@@ -222,18 +224,16 @@ makeSCVal gtable css (Assign (Identifier name) val) =
             Nothing ->
                 let err = Err . UndefinedVariable $ name
                 in case scvals' of
-                     Left err' ->
-                         (css, Left $ err : err')
+                     Left err' -> (css, Left $ err : err')
                      Right _ -> (css, Left [err])
             Just (SDecl d) ->
                 case scvals' of
                   Left err' -> (css, Left err')
                   Right val' -> (css, Right $ SAssign (SIdentifier name 0) val')
-            Just _ ->
+            Just x ->
                 let err = Err . VariableWithFunctionCall $ name
                 in case scvals' of
-                     Left err' ->
-                         (css, Left $ err : err')
+                     Left err' -> (css, Left $ err : err')
                      Right _ -> (css, Left [err])
       (l, a, i) ->
           case scvals' of
@@ -274,7 +274,7 @@ makeSCValExpr gtable css cval1 cval2 constructor =
 makeSStatement :: GlobalSValTable -> CollectSValState
                                   -> Statement
                                   -> (CollectSValState, Either [CompileLog] SStatement)
-makeSStatement _ css (NullExp) = (css, Right SNullExp)
+makeSStatement _ css NullExp = (css, Right SNullExp)
 
 makeSStatement gtable css (Expression val) =
     let (css', scval) = makeSCVal gtable css val
@@ -292,7 +292,7 @@ makeSStatement gtable css (If cond state1 state2) = f scond
           f (Right condition) =
               if all isRight statelist
               then (increTag css''',
-                             Right $ SIf { itag = tag css''',
+                             Right $ SIf { itag = (++) "if" . show . tag $ css''',
                                            condition = condition,
                                            state1 = (rights statelist) !! 0,
                                            elsestate = (rights statelist) !! 1 })
@@ -307,18 +307,21 @@ makeSStatement gtable css (While cond state) = f scond
           f (Right condition) =
               if all isRight statelist
               then (increTag css'',
-                             Right $ SWhile { wtag = tag css'',
+                             Right $ SWhile { wtag = (++) "while" . show .tag $ css'',
                                               condition = condition,
                                               state = head . rights $ statelist })
               else (css'', Left $ foldr (++) [] . lefts $ statelist)
 
-makeSStatement gtable css (Return Nothing) = (css, Right $ SReturn 0 Nothing)
+makeSStatement gtable css (Return Nothing) =
+    (css, Right $ SReturn { rtag = (++) "return" . show . tag $ css,
+                            rexp = Nothing })
 makeSStatement gtable css (Return (Just val)) =
     let (css', sval) = makeSCVal gtable css val
     in case sval of
          Left err -> (css', Left err)
-         Right val' -> (increTag css', Right $ SReturn { rtag = tag css',
-                                                         rexp = Just val' })
+         Right val' ->
+             (increTag css', Right $ SReturn { rtag = (++) "return" . show . tag $ css',
+                                               rexp = Just val' })
 
 makeSStatement _ css (Declaration decls) =
     let (css', objs) = varlistToVarObjlist css decls

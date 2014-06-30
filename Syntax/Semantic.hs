@@ -69,14 +69,14 @@ showSExpr s c1 c2 = "(" ++ s ++ " " ++ show c1 ++ " " ++ show c2 ++ ")"
 
 data SStatement = SNullExp
                 | SExpression SCVal
-                | SIf { itag :: Integer,
+                | SIf { itag :: String,
                         condition :: SCVal,
                         state1 :: SStatement,
                         elsestate ::  SStatement }
-                | SWhile { wtag :: Integer,
+                | SWhile { wtag :: String,
                            condition :: SCVal,
                            state :: SStatement }
-                | SReturn { rtag :: Integer,
+                | SReturn { rtag :: String,
                             rexp :: (Maybe SCVal) }
                 | SDeclaration [VarObj]
                 | SCompoundStatement [SStatement]
@@ -84,10 +84,10 @@ data SStatement = SNullExp
 instance Show SStatement where
     show SNullExp = ""
     show (SExpression val) = show val
-    show (SIf t c s e) = "(if : " ++ show t ++ show c ++ show s ++ show e ++ ")"
-    show (SWhile t c s) = "(while : " ++ show t ++ show c ++ show s ++ ")"
-    show (SReturn t Nothing) = "(return : " ++ show t ++ ")"
-    show (SReturn t (Just e)) = "(return : " ++ show t ++ show e ++ ")"
+    show (SIf t c s e) = "(if : " ++ t ++ " " ++ show c ++ show s ++ show e ++ ")"
+    show (SWhile t c s) = "(while : " ++ t ++ " " ++ show c ++ show s ++ ")"
+    show (SReturn t Nothing) = "(return : " ++ t ++ ")"
+    show (SReturn t (Just e)) = "(return : " ++ t ++ " " ++ show e ++ ")"
     show (SDeclaration var) = unwordsList var
     show (SCompoundStatement state) = "(" ++ unwordsList state ++ ")"
 
