@@ -76,7 +76,7 @@ parseLogicalORExpr    = buildExpressionParser table (lexeme parseUnaryExpr)
 --演算子のパースとそのとき実行する関数のリスト
 table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft, op "%" Mod AssocLeft]
           ,[op "+" Add AssocLeft, op "-" Sub AssocLeft]
-          ,[op "<" More AssocLeft, op ">" Less AssocLeft, op "<=" MoreE AssocLeft, op ">=" LessE AssocLeft]
+          ,[op "<" Less AssocLeft, op ">" More AssocLeft, op "<=" LessE AssocLeft, op ">=" MoreE AssocLeft]
           ,[op "==" Equal AssocLeft, op "!=" NEqual AssocLeft]
           ,[op "&&" L_AND AssocLeft]
 	  ,[op "||" L_OR AssocLeft]
