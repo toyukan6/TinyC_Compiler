@@ -110,7 +110,10 @@ instance Show Statement where
     show state = showStatement state ""
                  
 instance Show Function where
-    show (Func t ident var state) = "(" ++ show t ++ " " ++ show ident
-                                    ++ " (" ++ show var ++ ")" ++ showFuncBody state ++ ")"
+    show (Func t ident var state) =
+        foldr (++) "" ["(",show t," ",show ident," (",show var,")",showBody state,")"]
 
-showFuncBody st = showStatement st "    "
+showBody st = showStatement st "    "
+
+--listToList :: [[a]] -> [a]
+--listToList = foldr (++) []

@@ -276,28 +276,14 @@ makeSCVal gtable css (L_AND val1 val2) =
                          vAddress = calcAdr css'',
                          vLevel = lev css'',
                          tmpvExp = vals !! 0 }
-                css''' = increTag . insertSVal css'' $ SDecl tmp1 --CSS
-                         {- stack = addStack (stack css'') (vLevel tmp1)
-                                       (vAddress tmp1) (vName tmp1),
-                           svalTable = svalTable . insertSVal css'' $ SDecl tmp1,
-                           compileLog = compileLog css'',
-                           lev = lev css'',
-                           tag = tag css'' + 1,
-                           funcName = funcName css'' -}
+                css''' = increTag . insertSVal css'' $ SDecl tmp1
                 tmp2 = TmpVarObj
                        { vName = show . tag $ css''',
                          vType = SInt,
                          vAddress = calcAdr css''',
                          vLevel = lev css''',
                          tmpvExp = vals !! 1 }
-                css'''' = increTag . insertSVal css'' $ SDecl tmp2 --CSS
-                          {- stack = addStack (stack css''') (vLevel tmp1)
-                                        (vAddress tmp1) (vName tmp1),
-                            svalTable = svalTable . insertSVal css''' $ SDecl tmp2,
-                            compileLog = compileLog css'',
-                            lev = lev css'',
-                            tag = tag css'' + 1,
-                            funcName = funcName css'' -}
+                css'''' = increTag . insertSVal css'' $ SDecl tmp2
                 t = (++) (funcName css'''') . (++) "and" . show . tag $ css''''
             in (css'''', Right $ SL_AND t (TmpVar tmp1) (TmpVar tmp2))
        else (css'', Left $ foldr (++) [] errs)
@@ -314,28 +300,14 @@ makeSCVal gtable css (L_OR val1 val2) =
                          vAddress = calcAdr css'',
                          vLevel = lev css'',
                          tmpvExp = vals !! 0 }
-                css''' = CSS
-                         { stack = addStack (stack css'') (vLevel tmp1)
-                                       (vAddress tmp1) (vName tmp1),
-                           svalTable = svalTable . insertSVal css'' $ SDecl tmp1,
-                           compileLog = compileLog css'',
-                           lev = lev css'',
-                           tag = tag css'' + 1,
-                           funcName = funcName css'' }
+                css''' = increTag . insertSVal css'' $ SDecl tmp1
                 tmp2 = TmpVarObj
                        { vName = show . tag $ css''',
                          vType = SInt,
                          vAddress = calcAdr css''',
                          vLevel = lev css''',
                          tmpvExp = vals !! 1 }
-                css'''' = CSS
-                          { stack = addStack (stack css''') (vLevel tmp1)
-                                        (vAddress tmp1) (vName tmp1),
-                            svalTable = svalTable . insertSVal css''' $ SDecl tmp2,
-                            compileLog = compileLog css'',
-                            lev = lev css'',
-                            tag = tag css'' + 1,
-                            funcName = funcName css'' }
+                css'''' = increTag . insertSVal css'' $ SDecl tmp2
                 t = (++) (funcName css'''') . (++) "or" . show . tag $ css''''
             in (css'''', Right $ SL_OR t (vals !! 0) (vals !! 1))
        else (css'', Left $ foldr (++) [] errs)
@@ -359,13 +331,6 @@ makeSCValExpr gtable css cval1 cval2 constructor =
                          vLevel = lev css'',
                          tmpvExp = vals !! 0 }
                 css''' = increTag . insertSVal css'' $ SDecl tmp1 --CSS
-                         {- stack = addStack (stack css'') (vLevel tmp1)
-                                       (vAddress tmp1) (vName tmp1),
-                           svalTable = svalTable . insertSVal css'' $ SDecl tmp1,
-                           compileLog = compileLog css'',
-                           lev = lev css'',
-                           tag = tag css'' + 1,
-                           funcName = funcName css'' -}
                 tmp2 = TmpVarObj
                        { vName = show . tag $ css''',
                          vType = SInt,
@@ -373,13 +338,6 @@ makeSCValExpr gtable css cval1 cval2 constructor =
                          vLevel = lev css''',
                          tmpvExp = vals !! 1 }
                 css'''' = increTag . insertSVal css'' $ SDecl tmp2 --CSS
-                          {- stack = addStack (stack css''') (vLevel tmp1)
-                                        (vAddress tmp1) (vName tmp1),
-                            svalTable = svalTable . insertSVal css''' $ SDecl tmp2,
-                            compileLog = compileLog css'',
-                            lev = lev css'',
-                            tag = tag css'' + 1,
-                            funcName = funcName css'' -}
             in (css'''', Right $ constructor (TmpVar tmp1) (TmpVar tmp2))
        else (css'', Left $ foldr (++) [] errs)
 

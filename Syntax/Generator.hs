@@ -59,6 +59,7 @@ data ZeroOperation = GRet
                    | GSetl
                    | GSetle
                    | GSete
+                   | GSetne
                    | GCdq
 
 instance Show ZeroOperation where
@@ -68,6 +69,7 @@ instance Show ZeroOperation where
     show GSetl = "setl al"
     show GSetle = "setle al"
     show GSete = "sete al"
+    show GSetne = "setne al"
     show GCdq = "cdq"
 
 data Code = BO BinaryOperation
