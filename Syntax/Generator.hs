@@ -76,7 +76,7 @@ data Code = BO BinaryOperation
           | L Label
 
 instance Show Code where
-    show (BO b) = show b
-    show (MO m) = show m
-    show (ZO z) = show z
+    show (BO b) = "\t" ++ show b
+    show (MO m) = "\t" ++ show m
+    show (ZO z) = "\t" ++ show z
     show (L l) = show l
