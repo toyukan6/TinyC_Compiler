@@ -142,12 +142,12 @@ instance CodeGeneration SCVal where
 generateExpCode :: (String -> String -> [Code]) -> SCVal
                                                 -> SCVal
                                                 -> [Code]
-generateExpCode op n1@(TmpVar var) n2 =
+{-generateExpCode op n1@(TmpVar var) n2 =
     let code1 = codeGenerate n1
         code2 = codeGenerate n2
         eMov = mov "eax" . memoryAddress "ebp" . vAddress $ var
         opeCode = op "eax" . memoryAddress "ebp" . vAddress $ var
-    in foldr (++) [] [code1, eMov, code2, opeCode]
+    in foldr (++) [] [code1, eMov, code2, opeCode]-}
 generateExpCode op n1 n2@(TmpVar var) =
     let code1 = codeGenerate n1
         code2 = codeGenerate n2
@@ -157,7 +157,7 @@ generateExpCode op n1 n2@(TmpVar var) =
 generateExpCode op n1 n2 =
     let code1 = codeGenerate n1
         code2 = codeGenerate n2
-    in foldr (++) [] [code1, mov "ebx" "eax", code2, op "eax" "ebx"]
+    in foldr (++) [] [code2, mov "ebx" "eax", code1, op "eax" "ebx"]
 
 generateCmpCode :: [Code] -> SCVal -> SCVal -> [Code]
 generateCmpCode op n1 n2 =
