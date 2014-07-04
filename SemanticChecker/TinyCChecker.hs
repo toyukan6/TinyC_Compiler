@@ -503,14 +503,6 @@ stateListToSStateList gtable css (s : ss) =
                         Left err -> (css'', Left $ err)
                         Right vals -> (css'', Right $ val : vals)
     
-isLeft :: Either a b -> Bool
-isLeft (Left x) = True
-isLeft (Right x) = False
-
-isRight :: Either a b -> Bool
-isRight (Left x) = False
-isRight (Right x) = True
-
 fromLeft :: Either a b -> a
 fromLeft (Left x) = x
 
