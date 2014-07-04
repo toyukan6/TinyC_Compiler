@@ -49,7 +49,7 @@ setge = (ZO GSetge) : movzx "eax" "al"
 setl = (ZO GSetl) : movzx "eax" "al"
 setle = (ZO GSetle) : movzx "eax" "al"
 sete = (ZO GSete) : movzx "eax" "al"
-setne = (:) (ZO GSetne) : movzx "eax" "al"
+setne = (ZO GSetne) : movzx "eax" "al"
 
 common :: String -> Integer -> [Code]
 common l n = [BO . GCommon l $ n]
