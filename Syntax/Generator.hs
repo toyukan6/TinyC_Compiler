@@ -49,8 +49,8 @@ instance Show MonadicOperation where
     show (GGlobal e) = monadicOperation "GLOBAL" e
     show (GExtern e) = monadicOperation "EXTERN" e
     show (GCall e) = monadicOperation "call" e
-    show (GJump l) = monadicOperation "jmp" . show $ l
-    show (GJe l) = monadicOperation "je" . show $ l
+    show (GJump l) = monadicOperation "jmp" . init . show $ l
+    show (GJe l) = monadicOperation "je" . init . show $ l
     show (GNot n) = monadicOperation "not" n
 
 data ZeroOperation = GRet
