@@ -25,7 +25,7 @@ instance Show BinaryOperation where
 data Label = Label String
 
 instance Show Label where
-    show (Label l) = l
+    show (Label l) = l ++ ":"
 
 data MonadicOperation = GDiv String
                       | GMod String

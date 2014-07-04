@@ -142,7 +142,7 @@ instance CodeGeneration SCVal where
 generateExpCode :: (String -> String -> [Code]) -> SCVal
                                                 -> SCVal
                                                 -> [Code]
-{-generateExpCode op n1@(TmpVar var) n2 =
+{-generateExpCode op n1@(TmpVar var1) n2 =
     let code1 = codeGenerate n1
         code2 = codeGenerate n2
         eMov = mov "eax" . memoryAddress "ebp" . vAddress $ var
