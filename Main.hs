@@ -2,13 +2,20 @@ module Main where
 
 import Text.ParserCombinators.Parsec
 import System.Environment
+import System.FilePath (dropExtension)
 
+import CodeGenerator.TinyCGenerator
 import SemanticChecker.TinyCChecker
 import CompileError
 import Parser.TinyCParser
 import Syntax.AST
 import Syntax.Type
 import Syntax.Semantic
+import Syntax.Generator
+
+generate :: ([CompileLog], GlobalSValTable) -> Either [CompileError] ([CompileLog], [Code])
+generate (log, table) =
+    Right (log, generateCode table)
 
 checker :: [Program] -> Either [CompileError] ([CompileLog], GlobalSValTable)
 checker pro =
@@ -26,10 +33,13 @@ parser input =
 main :: IO ()
 main = do
   input <- getArgs
-  file <- readFile (head input)
-  let code = parser file >>= checker
+  file <- readFile $ head input
+  let code = parser file >>= checker >>= generate
   case code of
     Left err -> putStr . unlines . map show $ err
-    Right val -> putStrLn . show $ val
+    Right val -> do
+              let log = fst val
+              putStr . unlines . map show $ log
+              writeFile (dropExtension (head input) ++ ".asm") . unlines . map show . snd $ val
 
 

@@ -33,7 +33,7 @@ makeSFunc :: GlobalSValTable -> Function
                              -> ([CompileLog], GlobalSValTable)
 makeSFunc gtable func@(Func tp (Identifier name) ps cs) =
     let tmp = makeSTmpFunction func
-        (css, pd) = makeSParameter (addLevel initialState) ps
+        (css, pd) = makeSParameter (addLevel . initialState $ name) ps
         (css', cs') = makeSStatement (Map.insert name tmp gtable) css cs
     in case pd of
          Left err ->
@@ -101,7 +101,8 @@ data CollectSValState = CSS { stack :: Stack,
                               svalTable :: SValTable,
                               compileLog :: [CompileLog],
                               lev :: Integer,
-                              tag :: Integer }
+                              tag :: Integer,
+                              funcName :: String }
                         deriving (Show)
 
 insertSVal :: CollectSValState -> SVal -> CollectSValState
@@ -110,7 +111,8 @@ insertSVal css sval@(SDecl var) =
           svalTable = Map.insert (toInteger $ Map.size $ svalTable css) sval (svalTable css),
           compileLog = compileLog css,
           lev = lev css,
-          tag = tag css}
+          tag = tag css,
+          funcName = funcName css }
 
 addLog :: CollectSValState -> CompileLog -> CollectSValState
 addLog table log =
@@ -118,7 +120,8 @@ addLog table log =
           svalTable = svalTable table,
           compileLog = log : compileLog table,
           lev = lev table,
-          tag = tag table}
+          tag = tag table,
+          funcName = funcName table }
 
 addLevel :: CollectSValState -> CollectSValState
 addLevel css =
@@ -126,7 +129,8 @@ addLevel css =
           svalTable = svalTable css,
           compileLog = compileLog css,
           lev = lev css + 1,
-          tag = tag css}
+          tag = tag css,
+          funcName = funcName css }
 
 downLevel :: CollectSValState -> CollectSValState
 downLevel css =
@@ -134,7 +138,8 @@ downLevel css =
           svalTable = svalTable css,
           compileLog = compileLog css,
           lev = lev css - 1,
-          tag = tag css}
+          tag = tag css,
+          funcName = funcName css }
 
 increTag :: CollectSValState -> CollectSValState
 increTag css = 
@@ -142,30 +147,42 @@ increTag css =
           svalTable = svalTable css,
           compileLog = compileLog css,
           lev = lev css,
-          tag = tag css + 1}
+          tag = tag css + 1,
+          funcName = funcName css }
 
-initialState :: CollectSValState
-initialState =
+initialState :: String -> CollectSValState
+initialState fn =
     CSS { stack = [],
           svalTable = emptyTable,
           compileLog = [],
           lev = 0,
-          tag = 0 }
+          tag = 0,
+          funcName = fn }
 
 makeLocalSDecl :: CollectSValState -> Variation -> SVal
 makeLocalSDecl css (Variation tp (Identifier name)) =
     SDecl VarObj { vname = name,
                    vType = convT tp,
-                   vAddress = calcAdr (svalTable css) (stack css) (lev css),
+                   vAddress = calcAdr css,
                    vLevel = lev css }
 
-calcAdr :: SValTable -> Stack -> Integer -> Integer
+calcAdr :: CollectSValState -> Integer
+calcAdr css
+    | (lev css) == 1 = foldl f 8 (stack css)
+    | otherwise = foldl g (negate 4) (stack css)
+    where f size (_, _, _, k) =
+              (+) size . sizeOf . fromJust . Map.lookup k . svalTable $ css
+          g size (i, _, _, k)
+            | i == 1 = size
+            | otherwise = (-) size . sizeOf . fromJust . Map.lookup k . svalTable $ css
+
+{-calcAdr :: SValTable -> Stack -> Integer -> Integer
 calcAdr table stack lv
     | lv == 1 = foldl f 8 stack
     | otherwise = foldl g (negate 4) stack
     where f size (_, _, _, k) = (+) size . sizeOf . fromJust . Map.lookup k $ table
           g size (i, _, _, k) | i == 1 = size
-                              | otherwise = (-) size . sizeOf . fromJust . Map.lookup k $ table
+                              | otherwise = (-) size . sizeOf . fromJust . Map.lookup k $ table-}
 
 makeSCVal :: GlobalSValTable -> CollectSValState
                              -> CVal
@@ -253,8 +270,83 @@ makeSCVal gtable css (MoreE val1 val2) = makeSCValExpr gtable css val1 val2 SMor
 makeSCVal gtable css (LessE val1 val2) = makeSCValExpr gtable css val1 val2 SLessE
 makeSCVal gtable css (Equal val1 val2) = makeSCValExpr gtable css val1 val2 SEqual
 makeSCVal gtable css (NEqual val1 val2) = makeSCValExpr gtable css val1 val2 SNEqual
-makeSCVal gtable css (L_AND val1 val2) = makeSCValExpr gtable css val1 val2 SL_AND
-makeSCVal gtable css (L_OR val1 val2) = makeSCValExpr gtable css val1 val2 SL_OR
+
+makeSCVal gtable css (L_AND val1 val2) = 
+    let (css', val1') = makeSCVal gtable css val1
+        (css'', val2') = makeSCVal gtable css' val2
+        vlist = [val1', val2']
+        errs = lefts vlist
+        vals = rights vlist
+    in if all isRight vlist
+       then let tmp1 = TmpVarObj
+                       { vName = show . tag $ css'',
+                         vType = SInt,
+                         vAddress = calcAdr css'',
+                         vLevel = lev css'',
+                         tmpvExp = vals !! 0 }
+                css''' = CSS
+                         { stack = addStack (stack css'') (vLevel tmp1)
+                                       (vAddress tmp1) (vName tmp1),
+                           svalTable = svalTable . insertSVal css'' $ SDecl tmp1,
+                           compileLog = compileLog css'',
+                           lev = lev css'',
+                           tag = tag css'' + 1,
+                           funcName = funcName css'' }
+                tmp2 = TmpVarObj
+                       { vName = show . tag $ css''',
+                         vType = SInt,
+                         vAddress = calcAdr css''',
+                         vLevel = lev css''',
+                         tmpvExp = vals !! 1 }
+                css'''' = CSS
+                          { stack = addStack (stack css''') (vLevel tmp1)
+                                        (vAddress tmp1) (vName tmp1),
+                            svalTable = svalTable . insertSVal css''' $ SDecl tmp2,
+                            compileLog = compileLog css'',
+                            lev = lev css'',
+                            tag = tag css'' + 1,
+                            funcName = funcName css'' }
+                t = (++) (funcName css'''') . (++) "and" . show . tag $ css''''
+            in (css'''', Right $ SL_AND t (TmpVar tmp1) (TmpVar tmp2))
+       else (css'', Left $ foldr (++) [] errs)
+makeSCVal gtable css (L_OR val1 val2) =
+    let (css', val1') = makeSCVal gtable css val1
+        (css'', val2') = makeSCVal gtable css' val2
+        vlist = [val1', val2']
+        errs = lefts vlist
+        vals = rights vlist
+    in if all isRight vlist
+       then let tmp1 = TmpVarObj
+                       { vName = show . tag $ css'',
+                         vType = SInt,
+                         vAddress = calcAdr css'',
+                         vLevel = lev css'',
+                         tmpvExp = vals !! 0 }
+                css''' = CSS
+                         { stack = addStack (stack css'') (vLevel tmp1)
+                                       (vAddress tmp1) (vName tmp1),
+                           svalTable = svalTable . insertSVal css'' $ SDecl tmp1,
+                           compileLog = compileLog css'',
+                           lev = lev css'',
+                           tag = tag css'' + 1,
+                           funcName = funcName css'' }
+                tmp2 = TmpVarObj
+                       { vName = show . tag $ css''',
+                         vType = SInt,
+                         vAddress = calcAdr css''',
+                         vLevel = lev css''',
+                         tmpvExp = vals !! 1 }
+                css'''' = CSS
+                          { stack = addStack (stack css''') (vLevel tmp1)
+                                        (vAddress tmp1) (vName tmp1),
+                            svalTable = svalTable . insertSVal css''' $ SDecl tmp2,
+                            compileLog = compileLog css'',
+                            lev = lev css'',
+                            tag = tag css'' + 1,
+                            funcName = funcName css'' }
+                t = (++) (funcName css'''') . (++) "or" . show . tag $ css''''
+            in (css'''', Right $ SL_OR t (vals !! 0) (vals !! 1))
+       else (css'', Left $ foldr (++) [] errs)
 
 makeSCValExpr :: GlobalSValTable -> CollectSValState
                                  -> CVal
@@ -268,7 +360,35 @@ makeSCValExpr gtable css cval1 cval2 constructor =
         errs = lefts vlist
         vals = rights vlist
     in if all isRight vlist
-       then (css'', Right $ constructor (vals !! 0) (vals !! 1))
+       then let tmp1 = TmpVarObj
+                       { vName = show . tag $ css'',
+                         vType = SInt,
+                         vAddress = calcAdr css'',
+                         vLevel = lev css'',
+                         tmpvExp = vals !! 0 }
+                css''' = CSS
+                         { stack = addStack (stack css'') (vLevel tmp1)
+                                       (vAddress tmp1) (vName tmp1),
+                           svalTable = svalTable . insertSVal css'' $ SDecl tmp1,
+                           compileLog = compileLog css'',
+                           lev = lev css'',
+                           tag = tag css'' + 1,
+                           funcName = funcName css'' }
+                tmp2 = TmpVarObj
+                       { vName = show . tag $ css''',
+                         vType = SInt,
+                         vAddress = calcAdr css''',
+                         vLevel = lev css''',
+                         tmpvExp = vals !! 1 }
+                css'''' = CSS
+                          { stack = addStack (stack css''') (vLevel tmp1)
+                                        (vAddress tmp1) (vName tmp1),
+                            svalTable = svalTable . insertSVal css''' $ SDecl tmp2,
+                            compileLog = compileLog css'',
+                            lev = lev css'',
+                            tag = tag css'' + 1,
+                            funcName = funcName css'' }
+            in (css'''', Right $ constructor (TmpVar tmp1) (TmpVar tmp2))
        else (css'', Left $ foldr (++) [] errs)
 
 makeSStatement :: GlobalSValTable -> CollectSValState
@@ -292,7 +412,7 @@ makeSStatement gtable css (If cond state1 state2) = f scond
           f (Right condition) =
               if all isRight statelist
               then (increTag css''',
-                             Right $ SIf { itag = (++) "if" . show . tag $ css''',
+                             Right $ SIf { itag = (++) (funcName css''') . (++) "if" . show . tag $ css''',
                                            condition = condition,
                                            state1 = (rights statelist) !! 0,
                                            elsestate = (rights statelist) !! 1 })
@@ -307,20 +427,22 @@ makeSStatement gtable css (While cond state) = f scond
           f (Right condition) =
               if all isRight statelist
               then (increTag css'',
-                             Right $ SWhile { wtag = (++) "while" . show .tag $ css'',
+                             Right $ SWhile { wtag = (++) (funcName css'') . (++) "while" . show .tag $ css'',
                                               condition = condition,
                                               state = head . rights $ statelist })
               else (css'', Left $ foldr (++) [] . lefts $ statelist)
 
 makeSStatement gtable css (Return Nothing) =
-    (css, Right $ SReturn { rtag = (++) "return" . show . tag $ css,
+    (css, Right $ SReturn { rfuncName = funcName css,
+                            rtag = (++) (funcName css) . (++) "return" . show . tag $ css,
                             rexp = Nothing })
 makeSStatement gtable css (Return (Just val)) =
     let (css', sval) = makeSCVal gtable css val
     in case sval of
          Left err -> (css', Left err)
          Right val' ->
-             (increTag css', Right $ SReturn { rtag = (++) "return" . show . tag $ css',
+             (increTag css', Right $ SReturn { rfuncName = funcName css',
+                                               rtag = (++) (funcName css') . (++) "return" . show . tag $ css',
                                                rexp = Just val' })
 
 makeSStatement _ css (Declaration decls) =

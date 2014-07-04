@@ -16,6 +16,15 @@ instance Show SVal where
     show (STmpFunc tmp) = show tmp
     show (SDecl v) = show v
 
+isSFunc (SFunc f) = True
+isSFunc _ = False
+
+isSTmpFunc (STmpFunc f) = True
+isSTmpFunc _ = False
+
+isSDecl (SDecl d) = True
+isSDecl _ = False
+
 data SIdentifier = SIdentifier {
       name :: String,
       address :: Integer }
@@ -40,8 +49,30 @@ data SCVal = SNumber Integer
 	   | SLessE SCVal SCVal
 	   | SEqual SCVal SCVal
 	   | SNEqual SCVal SCVal
-	   | SL_AND SCVal SCVal
-	   | SL_OR SCVal SCVal
+	   | SL_AND String SCVal SCVal
+	   | SL_OR String SCVal SCVal
+           | TmpVar VarObj
+
+tmpVars :: SCVal -> [VarObj]
+tmpVars (TmpVar v) = [v]
+tmpVars (SMinus m) = tmpVars m
+tmpVars (SCValList l ls) = (tmpVars l) ++ (tmpVars ls)
+tmpVars (SCalFunc i vl) = foldr (++) [] . map tmpVars $ vl
+tmpVars (SAssign i v) = tmpVars v
+tmpVars (SAdd var1 var2) = (tmpVars var1) ++ (tmpVars var2)
+tmpVars (SSub var1 var2) = (tmpVars var1) ++ (tmpVars var2)
+tmpVars (SMul var1 var2) = (tmpVars var1) ++ (tmpVars var2)
+tmpVars (SDiv var1 var2) = (tmpVars var1) ++ (tmpVars var2)
+tmpVars (SMod var1 var2) = (tmpVars var1) ++ (tmpVars var2)
+tmpVars (SMore var1 var2) = (tmpVars var1) ++ (tmpVars var2)
+tmpVars (SLess var1 var2) = (tmpVars var1) ++ (tmpVars var2)
+tmpVars (SMoreE var1 var2) = (tmpVars var1) ++ (tmpVars var2)
+tmpVars (SLessE var1 var2) = (tmpVars var1) ++ (tmpVars var2)
+tmpVars (SEqual var1 var2) = (tmpVars var1) ++ (tmpVars var2)
+tmpVars (SNEqual var1 var2) = (tmpVars var1) ++ (tmpVars var2)
+tmpVars (SL_AND _ var1 var2) = (tmpVars var1) ++ (tmpVars var2)
+tmpVars (SL_OR _ var1 var2) = (tmpVars var1) ++ (tmpVars var2)
+tmpVars _ = []
 
 instance Show SCVal where
     show (SNumber n) = show n
@@ -61,8 +92,9 @@ instance Show SCVal where
     show (SLessE n1 n2) = showSExpr ">=" n1 n2
     show (SEqual n1 n2) = showSExpr "==" n1 n2
     show (SNEqual n1 n2) = showSExpr "!=" n1 n2
-    show (SL_AND n1 n2) = showSExpr "and" n1 n2
-    show (SL_OR n1 n2) = showSExpr "or" n1 n2
+    show (SL_AND t n1 n2) = showSExpr ("and" ++ t) n1 n2
+    show (SL_OR t n1 n2) = showSExpr ("or" ++ t) n1 n2
+    show (TmpVar v) = show v
 
 showSExpr :: String -> SCVal -> SCVal -> String
 showSExpr s c1 c2 = "(" ++ s ++ " " ++ show c1 ++ " " ++ show c2 ++ ")"
@@ -76,18 +108,35 @@ data SStatement = SNullExp
                 | SWhile { wtag :: String,
                            condition :: SCVal,
                            state :: SStatement }
-                | SReturn { rtag :: String,
+                | SReturn { rfuncName :: String,
+                            rtag :: String,
                             rexp :: (Maybe SCVal) }
                 | SDeclaration [VarObj]
                 | SCompoundStatement [SStatement]
+
+declarations :: [SStatement] -> [VarObj]
+declarations [] = []
+declarations (SExpression exp : ss) = (tmpVars exp) ++ (declarations ss)
+declarations (SDeclaration sd : ss) = (++) sd . declarations $ ss
+declarations (SCompoundStatement scs : ss) = (declarations scs) ++ (declarations ss)
+declarations (SIf _ cond s1 s2 : ss) =
+    (tmpVars cond) ++ (declarations [s1]) ++ (declarations [s2]) ++ (declarations ss)
+declarations (SWhile _ cond s : ss) =
+    (tmpVars cond) ++ (declarations [s]) ++ (declarations ss)
+declarations (SReturn _ _ Nothing : ss) = declarations ss
+declarations (SReturn _ _ (Just e) : ss) =
+    (tmpVars e) ++ (declarations ss)
+declarations (_ : ss) = declarations ss
 
 instance Show SStatement where
     show SNullExp = ""
     show (SExpression val) = show val
     show (SIf t c s e) = "(if : " ++ t ++ " " ++ show c ++ show s ++ show e ++ ")"
     show (SWhile t c s) = "(while : " ++ t ++ " " ++ show c ++ show s ++ ")"
-    show (SReturn t Nothing) = "(return : " ++ t ++ ")"
-    show (SReturn t (Just e)) = "(return : " ++ t ++ " " ++ show e ++ ")"
+    show (SReturn _ t s) =
+        case s of
+          Nothing -> "(return : " ++ t ++ ")"
+          Just expr -> "(return : " ++ t ++ " " ++ show expr ++ ")"
     show (SDeclaration var) = unwordsList var
     show (SCompoundStatement state) = "(" ++ unwordsList state ++ ")"
 
@@ -111,16 +160,21 @@ data FuncObj = FuncObj {
 instance Show FuncObj where
     show (FuncObj n p r b) = 
         "(" ++ show r ++ " " ++ show n ++ "(" ++  unwordsList p ++ ")" ++ show b ++ ")"
-    
-data VarObj = VarObj {
-    vname :: String,
-    vType :: SType,
-    vAddress :: Integer,
-    vLevel :: Integer }
+
+data VarObj = VarObj { vname :: String,
+                       vType :: SType,
+                       vAddress :: Integer,
+                       vLevel :: Integer }
+            | TmpVarObj { vName :: String,
+                          vType :: SType,
+                          vAddress :: Integer,
+                          vLevel :: Integer,
+                          tmpvExp :: SCVal }
 
 instance Show VarObj where
     show (VarObj n t a l) =
         "(" ++ show t ++ " " ++ n ++ ":" ++ show a ++ ":" ++ show l ++ ")"
+    show (TmpVarObj n t a l e) = "(" ++ n ++ ":" ++ show e ++ ":" ++ show a ++ ")"
 
 data SType = SInt
            | SVoid

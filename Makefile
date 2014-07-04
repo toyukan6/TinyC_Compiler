@@ -4,3 +4,4 @@ compiler: Main.hs
 	rm -rf Parser/*.o Parser/*.hi
 	rm -rf Syntax/*.o Syntax/*.hi
 	rm -rf SemanticChecker/*.o SemanticChecker/*.hi
+	rm -rf CodeGenerator/*.o CodeGenerator/*.hi
