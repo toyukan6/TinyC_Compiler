@@ -176,14 +176,6 @@ calcAdr css
             | i == 1 = size
             | otherwise = (-) size . sizeOf . fromJust . Map.lookup k . svalTable $ css
 
-{-calcAdr :: SValTable -> Stack -> Integer -> Integer
-calcAdr table stack lv
-    | lv == 1 = foldl f 8 stack
-    | otherwise = foldl g (negate 4) stack
-    where f size (_, _, _, k) = (+) size . sizeOf . fromJust . Map.lookup k $ table
-          g size (i, _, _, k) | i == 1 = size
-                              | otherwise = (-) size . sizeOf . fromJust . Map.lookup k $ table-}
-
 makeSCVal :: GlobalSValTable -> CollectSValState
                              -> CVal
                              -> (CollectSValState, Either [CompileLog] SCVal)
@@ -231,7 +223,7 @@ makeSCVal gtable css (CalFunc (Identifier name) param) =
       Just (SDecl var) ->
           (css, Left $ (Err . FunctionCallWithVariable $ name) : logs)
     where scvals' = map (makeSCVal gtable css) param
-          param' = map fromRight . filter isRight . map snd $ scvals'
+          param' = rights . map snd $ scvals'
           logs = foldr (++) [] . lefts . map snd $ scvals'
 
 makeSCVal gtable css (Assign (Identifier name) val) =
@@ -277,7 +269,7 @@ makeSCVal gtable css (L_AND val1 val2) =
         vlist = [val1', val2']
         errs = lefts vlist
         vals = rights vlist
-    in if all isRight vlist
+    in if null errs
        then let tmp1 = TmpVarObj
                        { vName = show . tag $ css'',
                          vType = SInt,
@@ -315,7 +307,7 @@ makeSCVal gtable css (L_OR val1 val2) =
         vlist = [val1', val2']
         errs = lefts vlist
         vals = rights vlist
-    in if all isRight vlist
+    in if null errs
        then let tmp1 = TmpVarObj
                        { vName = show . tag $ css'',
                          vType = SInt,
@@ -359,7 +351,7 @@ makeSCValExpr gtable css cval1 cval2 constructor =
         vlist = [val1', val2']
         errs = lefts vlist
         vals = rights vlist
-    in if all isRight vlist
+    in if null errs
        then let tmp1 = TmpVarObj
                        { vName = show . tag $ css'',
                          vType = SInt,
@@ -410,7 +402,7 @@ makeSStatement gtable css (If cond state1 state2) = f scond
           f (Left err1) =
               (css''', Left $ (++) err1 . foldr (++) [] . lefts $ statelist)
           f (Right condition) =
-              if all isRight statelist
+              if null . lefts $ statelist
               then (increTag css''',
                              Right $ SIf { itag = (++) (funcName css''') . (++) "if" . show . tag $ css''',
                                            condition = condition,
@@ -425,7 +417,7 @@ makeSStatement gtable css (While cond state) = f scond
           f (Left err1) =
               (css'', Left $ (++) err1 . foldr (++) [] . lefts $ statelist)
           f (Right condition) =
-              if all isRight statelist
+              if null . lefts $ statelist
               then (increTag css'',
                              Right $ SWhile { wtag = (++) (funcName css'') . (++) "while" . show .tag $ css'',
                                               condition = condition,
@@ -472,9 +464,9 @@ varlistToVarObjlist css (var : vars) =
     let (css', var') = varlistToVarObjlist css [var]
         (css'', vars') = varlistToVarObjlist css' vars
         objlist = var' : [vars']
-    in if any isLeft objlist
-       then (css'', Left $ foldr (++) [] . lefts $ objlist)
-       else (css'', Right $ foldr (++) [] . rights $ objlist)
+    in if null . lefts $ objlist
+       then (css'', Right $ foldr (++) [] . rights $ objlist)
+       else (css'', Left $ foldr (++) [] . lefts $ objlist)
 
 checkAndInsert :: CollectSValState -> SVal
                                    -> (CollectSValState, Maybe CompileLog)
@@ -502,15 +494,3 @@ stateListToSStateList gtable css (s : ss) =
          Right val -> case ss' of
                         Left err -> (css'', Left $ err)
                         Right vals -> (css'', Right $ val : vals)
-    
-fromLeft :: Either a b -> a
-fromLeft (Left x) = x
-
-fromRight :: Either a b -> b
-fromRight (Right x) = x
-
-containLeft :: [Either a b] -> Bool
-containLeft = any isLeft
-
-containNothing :: [Maybe a] -> Bool
-containNothing = any isNothing
