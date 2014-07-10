@@ -179,8 +179,8 @@ instance CodeGeneration SStatement where
         let lb = makeLabel it
             condCode = codeGenerate cond
             c = cmp "eax" "0"
-            j = je endlb
-            jend = jmp elselb
+            j = je elselb
+            jend = jmp endlb
             sCode = codeGenerate s1
             elselb = makeLabel . (++) "else" $ it
             eCode = codeGenerate es
