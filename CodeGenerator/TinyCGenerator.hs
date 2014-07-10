@@ -195,7 +195,7 @@ instance CodeGeneration SStatement where
             c = cmp "eax" "0"
             jmpEnd = je endlb
         in foldr (++) [] [lb, condCode, c, jmpEnd, sCode, jmpFirst, endlb]
-    codeGenerate (SReturn rf rt re) =
+    codeGenerate (SReturn rf re) =
         let jRet = jmp . makeLabel . (++) rf $ "ret"
         in case re of
              Nothing -> jRet

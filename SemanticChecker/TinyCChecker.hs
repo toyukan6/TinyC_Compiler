@@ -185,10 +185,9 @@ makeSCVal gtable css (Ident (Identifier name)) =
       (-1, -1, -1) ->
           case Map.lookup name gtable of
             Nothing -> (css, Left [Err . UndefinedVariable $ name])
-            Just (SFunc f) -> (css, Left [Err . VariableWithFunctionCall $ name])
-            Just (STmpFunc f) -> (css, Left [Err . VariableWithFunctionCall $ name])
             Just (SDecl d) ->
                 (css, Right $ SIdent SIdentifier { name = name, address = 0 })
+            Just x -> (css, Left [Err . VariableWithFunctionCall $ name])
       (l, a, i) -> (css, Right $ SIdent SIdentifier { name = name, address = a })
                 
 makeSCVal gtable css (Minus val) =
@@ -204,24 +203,26 @@ makeSCVal gtable css (CalFunc (Identifier name) param) =
         in if null logs
            then (war, Right $ SCalFunc (SIdentifier name 0) $ param')
            else (war, Left logs)
-      Just (SFunc func) ->
-          let expectLength = toInteger . length . params $ func
-              givenLength = toInteger . length $ param
-          in if expectLength == givenLength
-             then if null logs
-                  then (css, Right $ SCalFunc (SIdentifier name 0) $ param')
-                  else (css, Left logs)
-             else (css, Left $ (Err . InvalidNumOfParameter name expectLength $ givenLength) : logs)
-      Just (STmpFunc func) ->
-          let expectLength = toInteger . length . tmpParams $ func
-              givenLength = toInteger . length $ param
-          in if expectLength == givenLength
-             then if null logs
-                  then (css, Right $ SCalFunc (SIdentifier name 0) $ param')
-                  else (css, Left logs)
-             else (css, Left $ (Err . InvalidNumOfParameter name expectLength $ givenLength) : logs)
       Just (SDecl var) ->
           (css, Left $ (Err . FunctionCallWithVariable $ name) : logs)
+      Just (SFunc func) ->
+          let expLen = toInteger . length . params $ func
+              givLen = toInteger . length $ param
+              invalid = InvalidNumOfParameter name expLen givLen
+          in if expLen == givLen
+             then if null logs
+                  then (css, Right $ SCalFunc (SIdentifier name 0) $ param')
+                  else (css, Left logs)
+             else (css, Left . (:) (Err invalid) $ logs)
+      Just (STmpFunc func) ->
+          let expLen = toInteger . length . tmpParams $ func
+              givLen = toInteger . length $ param
+              invalid = InvalidNumOfParameter name expLen givLen
+          in if expLen == givLen
+             then if null logs
+                  then (css, Right $ SCalFunc (SIdentifier name 0) $ param')
+                  else (css, Left logs)
+             else (css, Left . (:) (Err invalid) $ logs)
     where scvals' = map (makeSCVal gtable css) param
           param' = rights . map snd $ scvals'
           logs = foldr (++) [] . lefts . map snd $ scvals'
@@ -271,14 +272,14 @@ makeSCVal gtable css (L_AND val1 val2) =
         vals = rights vlist
     in if null errs
        then let tmp1 = TmpVarObj
-                       { vName = show . tag $ css'',
+                       { vname = show . tag $ css'',
                          vType = SInt,
                          vAddress = calcAdr css'',
                          vLevel = lev css'',
                          tmpvExp = vals !! 0 }
                 css''' = increTag . insertSVal css'' $ SDecl tmp1
                 tmp2 = TmpVarObj
-                       { vName = show . tag $ css''',
+                       { vname = show . tag $ css''',
                          vType = SInt,
                          vAddress = calcAdr css''',
                          vLevel = lev css''',
@@ -295,14 +296,14 @@ makeSCVal gtable css (L_OR val1 val2) =
         vals = rights vlist
     in if null errs
        then let tmp1 = TmpVarObj
-                       { vName = show . tag $ css'',
+                       { vname = show . tag $ css'',
                          vType = SInt,
                          vAddress = calcAdr css'',
                          vLevel = lev css'',
                          tmpvExp = vals !! 0 }
                 css''' = increTag . insertSVal css'' $ SDecl tmp1
                 tmp2 = TmpVarObj
-                       { vName = show . tag $ css''',
+                       { vname = show . tag $ css''',
                          vType = SInt,
                          vAddress = calcAdr css''',
                          vLevel = lev css''',
@@ -325,14 +326,14 @@ makeSCValExpr gtable css cval1 cval2 constructor =
         vals = rights vlist
     in if null errs
        then let tmp1 = TmpVarObj
-                       { vName = show . tag $ css'',
+                       { vname = show . tag $ css'',
                          vType = SInt,
                          vAddress = calcAdr css'',
                          vLevel = lev css'',
                          tmpvExp = vals !! 0 }
                 css''' = increTag . insertSVal css'' $ SDecl tmp1 --CSS
                 tmp2 = TmpVarObj
-                       { vName = show . tag $ css''',
+                       { vname = show . tag $ css''',
                          vType = SInt,
                          vAddress = calcAdr css''',
                          vLevel = lev css''',
@@ -357,43 +358,39 @@ makeSStatement gtable css (If cond state1 state2) = f scond
           (css'', sstate1) = makeSStatement gtable css' state1
           (css''', sstate2) = makeSStatement gtable css'' state2
           statelist = [sstate1, sstate2]
+          it = (++) (funcName css''') . (++) "if" . show . tag $ css'''
           f (Left err1) =
               (css''', Left $ (++) err1 . foldr (++) [] . lefts $ statelist)
           f (Right condition) =
               if null . lefts $ statelist
-              then (increTag css''',
-                             Right $ SIf { itag = (++) (funcName css''') . (++) "if" . show . tag $ css''',
-                                           condition = condition,
-                                           state1 = (rights statelist) !! 0,
-                                           elsestate = (rights statelist) !! 1 })
+              then (increTag css''', Right $ SIf { itag = it,
+                                                   condition = condition,
+                                                   state1 = (rights statelist) !! 0,
+                                                   elsestate = (rights statelist) !! 1 })
               else (css''', Left $ foldr (++) [] . lefts $ statelist)
 
 makeSStatement gtable css (While cond state) = f scond
     where (css', scond) = makeSCVal gtable css cond
           (css'', sstate) = makeSStatement gtable css' state
           statelist = [sstate]
+          wt = (++) (funcName css'') . (++) "while" . show . tag $ css''
           f (Left err1) =
               (css'', Left $ (++) err1 . foldr (++) [] . lefts $ statelist)
           f (Right condition) =
               if null . lefts $ statelist
-              then (increTag css'',
-                             Right $ SWhile { wtag = (++) (funcName css'') . (++) "while" . show .tag $ css'',
-                                              condition = condition,
-                                              state = head . rights $ statelist })
+              then (increTag css'', Right $ SWhile { wtag = wt,
+                                                     condition = condition,
+                                                     state = head . rights $ statelist })
               else (css'', Left $ foldr (++) [] . lefts $ statelist)
 
 makeSStatement gtable css (Return Nothing) =
-    (css, Right $ SReturn { rfuncName = funcName css,
-                            rtag = (++) (funcName css) . (++) "return" . show . tag $ css,
-                            rexp = Nothing })
+    (css, Right $ SReturn (funcName css) Nothing)
 makeSStatement gtable css (Return (Just val)) =
     let (css', sval) = makeSCVal gtable css val
     in case sval of
          Left err -> (css', Left err)
          Right val' ->
-             (increTag css', Right $ SReturn { rfuncName = funcName css',
-                                               rtag = (++) (funcName css') . (++) "return" . show . tag $ css',
-                                               rexp = Just val' })
+             (increTag css', Right . SReturn (funcName css) . Just $ val')
 
 makeSStatement _ css (Declaration decls) =
     let (css', objs) = varlistToVarObjlist css decls

@@ -109,8 +109,7 @@ data SStatement = SNullExp
                            condition :: SCVal,
                            state :: SStatement }
                 | SReturn { rfuncName :: String,
-                            rtag :: String,
-                            rexp :: (Maybe SCVal) }
+                            rExp :: Maybe SCVal }
                 | SDeclaration [VarObj]
                 | SCompoundStatement [SStatement]
 
@@ -123,8 +122,8 @@ declarations (SIf _ cond s1 s2 : ss) =
     (tmpVars cond) ++ (declarations [s1]) ++ (declarations [s2]) ++ (declarations ss)
 declarations (SWhile _ cond s : ss) =
     (tmpVars cond) ++ (declarations [s]) ++ (declarations ss)
-declarations (SReturn _ _ Nothing : ss) = declarations ss
-declarations (SReturn _ _ (Just e) : ss) =
+declarations (SReturn _ Nothing : ss) = declarations ss
+declarations (SReturn _ (Just e) : ss) =
     (tmpVars e) ++ (declarations ss)
 declarations (_ : ss) = declarations ss
 
@@ -133,10 +132,8 @@ instance Show SStatement where
     show (SExpression val) = show val
     show (SIf t c s e) = "(if : " ++ t ++ " " ++ show c ++ show s ++ show e ++ ")"
     show (SWhile t c s) = "(while : " ++ t ++ " " ++ show c ++ show s ++ ")"
-    show (SReturn _ t s) =
-        case s of
-          Nothing -> "(return : " ++ t ++ ")"
-          Just expr -> "(return : " ++ t ++ " " ++ show expr ++ ")"
+    show (SReturn _ Nothing) = "(return)"
+    show (SReturn _ (Just expr)) = "(return " ++ show expr ++ ")"
     show (SDeclaration var) = unwordsList var
     show (SCompoundStatement state) = "(" ++ unwordsList state ++ ")"
 
@@ -165,7 +162,7 @@ data VarObj = VarObj { vname :: String,
                        vType :: SType,
                        vAddress :: Integer,
                        vLevel :: Integer }
-            | TmpVarObj { vName :: String,
+            | TmpVarObj { vname :: String,
                           vType :: SType,
                           vAddress :: Integer,
                           vLevel :: Integer,
