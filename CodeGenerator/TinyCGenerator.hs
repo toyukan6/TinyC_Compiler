@@ -180,7 +180,7 @@ instance CodeGeneration SStatement where
             condCode = codeGenerate cond
             c = cmp "eax" "0"
             j = je endlb
-            jend = jmp endlb
+            jend = jmp elselb
             sCode = codeGenerate s1
             elselb = makeLabel . (++) "else" $ it
             eCode = codeGenerate es
