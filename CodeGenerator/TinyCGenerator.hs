@@ -89,7 +89,6 @@ instance CodeGeneration SVal where
 instance CodeGeneration SCVal where
     codeGenerate (SNumber n) = mov "eax" . show $ n
     codeGenerate (SIdent i) = mov "eax" . memoryAddress "ebp" . address $ i
-    codeGenerate (SMinus v) = (++) (codeGenerate v) . imul "eax" $ "-1"
     codeGenerate (SCValList l1 l2) = (++) (codeGenerate l1) . codeGenerate $ l2
     codeGenerate (SCalFunc i v) =
         let vCodes =

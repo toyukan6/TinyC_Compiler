@@ -190,12 +190,6 @@ makeSCVal gtable css (Ident (Identifier name)) =
             Just x -> (css, Left [Err . VariableWithFunctionCall $ name])
       (l, a, i) -> (css, Right $ SIdent SIdentifier { name = name, address = a })
                 
-makeSCVal gtable css (Minus val) =
-    let (css', val') = makeSCVal gtable css val
-      in case val' of
-           Left err -> (css', Left err)
-           Right v -> (css', Right $ SMinus v)
-     
 makeSCVal gtable css (CalFunc (Identifier name) param) =
     case Map.lookup name gtable of
       Nothing ->
@@ -251,6 +245,7 @@ makeSCVal gtable css (Assign (Identifier name) val) =
             Right val' -> (css, Right $ SAssign (SIdentifier name a) val')
     where scvals' = snd . makeSCVal gtable css $ val
 
+makeSCVal gtable css (Minus val) = makeSCValExpr gtable css val (Number $ -1) SMul
 makeSCVal gtable css (CValList l ls) = makeSCValExpr gtable css l ls SCValList
 makeSCVal gtable css (Add val1 val2) = makeSCValExpr gtable css val1 val2 SAdd
 makeSCVal gtable css (Sub val1 val2) = makeSCValExpr gtable css val1 val2 SSub

@@ -34,7 +34,6 @@ instance Show SIdentifier where
 
 data SCVal = SNumber Integer
            | SIdent SIdentifier
-           | SMinus SCVal
            | SCValList SCVal SCVal
            | SCalFunc SIdentifier [SCVal]
            | SAssign SIdentifier SCVal
@@ -55,7 +54,6 @@ data SCVal = SNumber Integer
 
 tmpVars :: SCVal -> [VarObj]
 tmpVars (TmpVar v) = [v]
-tmpVars (SMinus m) = tmpVars m
 tmpVars (SCValList l ls) = (tmpVars l) ++ (tmpVars ls)
 tmpVars (SCalFunc i vl) = foldr (++) [] . map tmpVars $ vl
 tmpVars (SAssign i v) = tmpVars v
@@ -77,7 +75,6 @@ tmpVars _ = []
 instance Show SCVal where
     show (SNumber n) = show n
     show (SIdent i) = show i
-    show (SMinus m) = "-" ++ show m
     show (SCValList l1 l2) = show l1 ++ show l2
     show (SCalFunc ident var) = "(" ++ show ident ++ " (" ++ unwordsList var ++ "))"
     show (SAssign n1 n2) = "(= " ++ show n1 ++ " " ++ show n2 ++ ")"
