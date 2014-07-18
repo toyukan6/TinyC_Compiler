@@ -20,7 +20,7 @@ tinyCStyle = emptyDef {
            , opStart        = opLetter emptyDef --演算子の開始
            , opLetter       = oneOf ":!#$%&*+./<=>?@\\^|-~" --演算子の利用可能文字
            , reservedOpNames= [] --拒絶される演算子
-           , reservedNames  = ["if", "else", "while", "return", "int", "void"] --拒絶される変数名
+           , reservedNames  = ["if", "else", "while", "for", "return", "int", "void"] --拒絶される変数名
            , caseSensitive  = True --大文字と小文字を区別するか
            }
 
@@ -87,7 +87,7 @@ table   = [[op "*" Mul AssocLeft, op "/" Div AssocLeft, op "%" Mod AssocLeft]
 parseExpression :: Parser CVal
 parseExpression = do whiteSpace
 		     assign <- (lexeme parseAssignExpr) `sepBy1` comma
-                     return (f assign)
+                     return $ f assign
 		     <?> "Expression"
     where f (x : []) = x
           f (x : xs) = CValList x (f xs)
@@ -101,12 +101,31 @@ parseAssignExpr = try parseSubstitution
 
 --substitutionのパース
 parseSubstitution :: Parser CVal
-parseSubstitution = do
-    i <- parseIdentifier
-    reservedOp "="
-    r <- parseAssignExpr
-    return $ Assign i r
-    <?> "Substitution"
+parseSubstitution = try parseNormalSubstitution
+                    <|> parseAssignSubstitution
+
+parseNormalSubstitution :: Parser CVal
+parseNormalSubstitution = do
+  i <- parseIdentifier
+  reservedOp "="
+  r <- parseAssignExpr
+  return $ Assign i r
+  <?> "Substitution"
+
+parseAssignSubstitution :: Parser CVal
+parseAssignSubstitution = try (parseSubstitute "+=" Add)
+                          <|> try (parseSubstitute "-=" Sub)
+                          <|> try (parseSubstitute "*=" Mul)
+                          <|> try (parseSubstitute "/=" Div)
+                          <|> try (parseSubstitute "%=" Mod)
+
+parseSubstitute :: String -> (CVal -> CVal -> CVal)
+                          -> Parser CVal
+parseSubstitute op constructor = do
+  i <- parseIdentifier
+  reservedOp op
+  r <- parseAssignExpr
+  return . Assign i . constructor (Ident i) $ r
 
 --unary-exprのパース
 parseUnaryExpr :: Parser CVal
@@ -153,6 +172,7 @@ parseStatement =
        return NullExp 
     <|> parseIf
     <|> parseWhile
+    <|> parseFor
     <|> parseReturn
     <|> do cs <- parseCompoundStatement
            return cs
@@ -185,6 +205,18 @@ parseWhile = do
     cond <- parens parseExpression
     state <- parseStatement
     return $ While cond state
+
+parseFor :: Parser Statement
+parseFor = do
+  reserved "for" >> spaces >> symbol "("
+  init <- optionMaybe parseSubstitution
+  lexeme semi
+  cond <- optionMaybe parseLogicalORExpr
+  lexeme semi
+  update <- optionMaybe parseSubstitution
+  spaces >> symbol ")"
+  state <- parseCompoundStatement
+  return $ For init cond update state
 
 --return文のパース
 parseReturn :: Parser Statement

@@ -9,6 +9,11 @@ data Warning = ParamShadow String
              | CallUndefineFunction String
              deriving (Eq)
 
+undefinedFunctions :: [Warning] -> [String]
+undefinedFunctions [] = []
+undefinedFunctions (CallUndefineFunction cuf : ws) = cuf : (undefinedFunctions ws)
+undefinedFunctions (ParamShadow _ : ws) = undefinedFunctions ws
+
 data SemanticError = UndefinedVariable String
      		   | ReDeclaration String
                    | ReDeclarationDifferentType String

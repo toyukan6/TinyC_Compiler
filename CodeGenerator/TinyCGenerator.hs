@@ -1,5 +1,6 @@
 module CodeGenerator.TinyCGenerator where
 
+import Data.List
 import qualified Data.Map as Map
 
 import CompileError
@@ -194,6 +195,17 @@ instance CodeGeneration SStatement where
             c = cmp "eax" "0"
             jmpEnd = je endlb
         in foldr (++) [] [lb, condCode, c, jmpEnd, sCode, jmpFirst, endlb]
+    codeGenerate (SFor ft init cond update s) =
+        let lb = makeLabel ft
+            initCode = maybe [] codeGenerate init
+            condCode = maybe [] codeGenerate cond
+            upCode = maybe [] codeGenerate update
+            sCode = codeGenerate s
+            endlb = makeLabel . (++) "end" $ ft
+            jmpFirst = jmp lb
+            c = cmp "eax" "0"
+            jmpEnd = je endlb
+        in foldr (++) [] [initCode, lb, condCode, c, jmpEnd, sCode, upCode, jmpFirst, endlb]
     codeGenerate (SReturn rf re) =
         let jRet = jmp . makeLabel . (++) rf $ "ret"
         in case re of
@@ -203,8 +215,9 @@ instance CodeGeneration SStatement where
     codeGenerate (SDeclaration _) = []
     codeGenerate (SCompoundStatement scs) = foldr (++) [] . map codeGenerate $ scs
 
-generateCode :: GlobalSValTable -> [Code]
-generateCode table =
-    let decls = Map.elems . Map.map codeGenerate . Map.filter isSDecl $ table
+generateCode :: [CompileLog] -> GlobalSValTable -> ([CompileLog], [Code])
+generateCode log table =
+    let externs = foldr (++) [] . map extern . nub . undefinedFunctions . wars $ log
+        decls = Map.elems . Map.map codeGenerate . Map.filter isSDecl $ table
         funcs = Map.elems . Map.map codeGenerate . Map.filter (not . isSDecl) $ table
-    in foldr (++) (foldr (++) [] funcs) decls
+    in (log, foldr (++) (foldr (++) externs  funcs) decls)

@@ -14,8 +14,7 @@ import Syntax.Semantic
 import Syntax.Generator
 
 generate :: ([CompileLog], GlobalSValTable) -> Either [CompileError] ([CompileLog], [Code])
-generate (log, table) =
-    Right (log, generateCode table)
+generate (log, table) = Right $ generateCode log table
 
 checker :: [Program] -> Either [CompileError] ([CompileLog], GlobalSValTable)
 checker pro =

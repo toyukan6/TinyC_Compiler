@@ -1,5 +1,6 @@
 module Syntax.Semantic where
 
+import Data.Maybe
 import qualified Data.Map as Map
     
 import CompileError
@@ -105,6 +106,11 @@ data SStatement = SNullExp
                 | SWhile { wtag :: String,
                            condition :: SCVal,
                            state :: SStatement }
+                | SFor { fortag :: String,
+                         initialize :: (Maybe SCVal),
+                         fcondition :: (Maybe SCVal),
+                         fupdate :: (Maybe SCVal),
+                         fstate :: SStatement }
                 | SReturn { rfuncName :: String,
                             rExp :: Maybe SCVal }
                 | SDeclaration [VarObj]
@@ -119,6 +125,9 @@ declarations (SIf _ cond s1 s2 : ss) =
     (tmpVars cond) ++ (declarations [s1]) ++ (declarations [s2]) ++ (declarations ss)
 declarations (SWhile _ cond s : ss) =
     (tmpVars cond) ++ (declarations [s]) ++ (declarations ss)
+declarations (SFor _ init cond up s : ss) =
+    (foldr (++) [] . map tmpVars . catMaybes $ [init, cond, up])
+                       ++ (declarations [s]) ++ (declarations ss)
 declarations (SReturn _ Nothing : ss) = declarations ss
 declarations (SReturn _ (Just e) : ss) =
     (tmpVars e) ++ (declarations ss)
@@ -129,6 +138,8 @@ instance Show SStatement where
     show (SExpression val) = show val
     show (SIf t c s e) = "(if : " ++ t ++ " " ++ show c ++ show s ++ show e ++ ")"
     show (SWhile t c s) = "(while : " ++ t ++ " " ++ show c ++ show s ++ ")"
+    show (SFor t i c u s) =
+        "(for : " ++ t ++ " " ++ unwordsList [i, c, u] ++ " " ++ show s ++ ")"
     show (SReturn _ Nothing) = "(return)"
     show (SReturn _ (Just expr)) = "(return " ++ show expr ++ ")"
     show (SDeclaration var) = unwordsList var

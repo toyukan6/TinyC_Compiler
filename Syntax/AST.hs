@@ -1,5 +1,7 @@
 module Syntax.AST where
 
+import Data.Maybe
+
 import Syntax.Type
 
 --Ž¯•ÊŽq‚ÌŒ^
@@ -40,6 +42,7 @@ data Statement = NullExp
                | Expression CVal
 	       | If CVal Statement Statement
 	       | While CVal Statement
+               | For (Maybe CVal) (Maybe CVal) (Maybe CVal) Statement
 	       | Return (Maybe CVal)
 	       | Declaration [Variation]
                | CompoundStatement [Statement]
@@ -95,11 +98,14 @@ instance Show CVal where show = showVal
 showStatement :: Statement -> String -> String
 showStatement NullExp str = str ++ "()"
 showStatement (Expression val) str = str ++ show val
-showStatement (If cond state1 state2) str = str ++ "(if " ++ show cond ++ "\n"
-                                            ++ showStatement state1 (str ++ "    ") ++ "\n"
-                                            ++ showStatement state2 (str ++ "    ") ++ ")"
-showStatement (While cond state) str = str ++ "(while " ++ show cond
-                                       ++ showStatement state (str ++ "    ") ++ ")"
+showStatement (If cond state1 state2) str =
+    str ++ "(if " ++ show cond ++ "\n" ++ showStatement state1 (str ++ "    ") ++ "\n"
+            ++ showStatement state2 (str ++ "    ") ++ ")"
+showStatement (While cond state) str =
+    str ++ "(while " ++ show cond ++ showStatement state (str ++ "    ") ++ ")"
+showStatement (For init cond update state) str =
+    str ++ "(for " ++ (unwords . map show . catMaybes $ [init, cond, update])
+            ++ showStatement state (str ++ "    ") ++ ")"
 showStatement (Return (Just state)) str = str ++ "(return " ++ show state ++ ")"
 showStatement (Return Nothing) str = str ++ "(return)"
 showStatement (Declaration var) str = str ++ unwordsList var
@@ -114,6 +120,3 @@ instance Show Function where
         foldr (++) "" ["(",show t," ",show ident," (",show var,")",showBody state,")"]
 
 showBody st = showStatement st "    "
-
---listToList :: [[a]] -> [a]
---listToList = foldr (++) []
