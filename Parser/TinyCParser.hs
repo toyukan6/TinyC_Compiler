@@ -295,7 +295,7 @@ parseDeclarator = do
     v <- parseIdentifier
     return $ Variation CInt v
     <?> "Declarator"
-    
+
 --declarator-listのパース
 parseDeclaratorList :: Parser Statement
 parseDeclaratorList = do
