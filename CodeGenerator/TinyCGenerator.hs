@@ -143,25 +143,22 @@ instance CodeGeneration SCVal where
 generateExpCode :: (String -> String -> [Code]) -> SCVal
                                                 -> SCVal
                                                 -> [Code]
-generateExpCode op (SNumber var1) (SNumber var2) = op (show var1) (show var2)
-generateExpCode op n1 (SNumber var2) =
-    let code = codeGenerate n1
-    in foldr (++) [] [code, op "eax" . show $ var2]
-generateExpCode op (SNumber var1) n2 =
-    let code = codeGenerate n2
-    in foldr (++) [] [code, op "eax" . show $ var1]
 generateExpCode op n1 n2@(TmpVar var) =
-    let code1 = codeGenerate n1
-        code2 = codeGenerate n2
-        eMov = mov "eax" . memoryAddress "ebp" . vAddress $ var
-        opeCode = op "eax" . memoryAddress "ebp" . vAddress $ var
-    in foldr (++) [] [code2, eMov, code1, opeCode]
+    case tmpvExp var of
+      (SNumber n) -> (codeGenerate n1) ++ (op "eax" . show $ n)
+      _ -> let code1 = codeGenerate n1
+               code2 = codeGenerate n2
+               eMov = mov "eax" . memoryAddress "ebp" . vAddress $ var
+               opeCode = op "eax" . memoryAddress "ebp" . vAddress $ var
+           in foldr (++) [] [code2, eMov, code1, opeCode]
 generateExpCode op n1@(TmpVar var) n2 =
-    let code1 = codeGenerate n1
-        code2 = codeGenerate n2
-        eMov = mov "eax" . memoryAddress "ebp" . vAddress $ var
-        opeCode = op "eax" . memoryAddress "ebp" . vAddress $ var
-    in foldr (++) [] [code1, eMov, code2, opeCode]
+    case tmpvExp var of
+      (SNumber n) -> (codeGenerate n2) ++ (op "eax" . show $ n)
+      _ -> let code1 = codeGenerate n1
+               code2 = codeGenerate n2
+               eMov = mov "eax" . memoryAddress "ebp" . vAddress $ var
+               opeCode = op "eax" . memoryAddress "ebp" . vAddress $ var
+           in foldr (++) [] [code1, eMov, code2, opeCode]
 generateExpCode op n1 n2 =
     let code1 = codeGenerate n1
         code2 = codeGenerate n2
