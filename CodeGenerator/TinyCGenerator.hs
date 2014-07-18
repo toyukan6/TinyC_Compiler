@@ -145,10 +145,10 @@ generateExpCode :: (String -> String -> [Code]) -> SCVal
                                                 -> [Code]
 generateExpCode op (SNumber var1) (SNumber var2) = op (show var1) (show var2)
 generateExpCode op n1 (SNumber var2) =
-    lt code = codeGenerate n1
+    let code = codeGenerate n1
     in foldr (++) [] [code, op "eax" . show $ var2]
 generateExpCode op (SNumber var1) n2 =
-    lt code = codeGenerate n2
+    let code = codeGenerate n2
     in foldr (++) [] [code, op "eax" . show $ var1]
 generateExpCode op n1 n2@(TmpVar var) =
     let code1 = codeGenerate n1
