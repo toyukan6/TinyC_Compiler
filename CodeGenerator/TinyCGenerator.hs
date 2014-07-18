@@ -118,19 +118,19 @@ instance CodeGeneration SCVal where
     codeGenerate (SEqual n1 n2) = generateCmpCode sete n1 n2
     codeGenerate (SNEqual n1 n2) = generateCmpCode setne n1 n2
     codeGenerate (SL_AND t n1 n2) =
-        let fAnd = mov "dword egx" "0"
+        let fAnd = mov "dword ebx" "0"
             code1 = codeGenerate n1
             code2 = codeGenerate n2
-            sAnd = mov "dword egx" "1"
+            sAnd = mov "dword ebx" "1"
             lb = makeLabel t
             c = cmp "eax" "0"
             j = je lb
-        in foldr (++) [] [fAnd, code1, c, j, code2, c, j, sAnd, lb, mov "eax" "egx"]
+        in foldr (++) [] [fAnd, code1, c, j, code2, c, j, sAnd, lb, mov "eax" "ebx"]
     codeGenerate (SL_OR t n1 n2) =
-        let fOr = mov "dword ehx" "1"
+        let fOr = mov "dword ebx" "1"
             code1 = codeGenerate n1
             code2 = codeGenerate n2
-            sOr = mov "dword ehx" "0"
+            sOr = mov "dword ebx" "0"
             lb = makeLabel t
             c = cmp "eax" "1"
             j = je lb
