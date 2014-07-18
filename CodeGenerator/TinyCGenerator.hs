@@ -89,7 +89,10 @@ instance CodeGeneration SVal where
 
 instance CodeGeneration SCVal where
     codeGenerate (SNumber n) = mov "eax" . show $ n
-    codeGenerate (SIdent i) = mov "eax" . memoryAddress "ebp" . address $ i
+    codeGenerate (SIdent i) =
+        if (address i) == 0
+        then mov "eax" . globalVariable . name $ i
+        else mov "eax" . memoryAddress "ebp" . address $ i
     codeGenerate (SCValList l1 l2) = (++) (codeGenerate l1) . codeGenerate $ l2
     codeGenerate (SCalFunc i v) =
         let vCodes =
@@ -98,7 +101,9 @@ instance CodeGeneration SCVal where
         in foldr (++) [] [foldr (++) [] vCodes, call . name $ i, espadd]
     codeGenerate (SAssign i v) =
         let vCode = codeGenerate v
-            assign = mov (memoryAddress "ebp" . address $ i) "eax"
+            assign = if (address i) == 0
+                     then mov (globalVariable . name $ i) "eax"
+                     else mov (memoryAddress "ebp" . address $ i) "eax"
         in vCode ++ assign
     codeGenerate (SAdd n1 n2) = generateExpCode add n1 n2
     codeGenerate (SSub n1 n2) = generateExpCode sub n1 n2
