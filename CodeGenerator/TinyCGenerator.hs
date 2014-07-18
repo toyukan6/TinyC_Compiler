@@ -134,7 +134,7 @@ instance CodeGeneration SCVal where
             lb = makeLabel t
             c = cmp "eax" "1"
             j = je lb
-        in foldr (++) [] [fOr, code1, c, j, code2, c, j, sOr, lb, mov "eax" "ehx"]
+        in foldr (++) [] [fOr, code1, c, j, code2, c, j, sOr, lb, mov "eax" "ebx"]
     codeGenerate (TmpVar vo) =
         let eCode = codeGenerate . tmpvExp $ vo
             mCode = mov (memoryAddress "ebp" . vAddress $ vo) $ "eax"
