@@ -111,11 +111,11 @@ instance CodeGeneration SCVal where
     codeGenerate (SDiv n1 n2) =
         let code1 = codeGenerate n1
             code2 = codeGenerate n2
-        in foldr (++) [] [code1, mov "ecx" "eax", code2, idiv "ecx"]
+        in foldr (++) [] [code2, mov "ecx" "eax", code1, idiv "ecx"]
     codeGenerate (SMod n1 n2) =
         let code1 = codeGenerate n1
             code2 = codeGenerate n2
-        in foldr (++) [] [code1, mov "ecx" "eax", code2, imod "ecx"]
+        in foldr (++) [] [code2, mov "ecx" "eax", code1, imod "ecx"]
     codeGenerate (SMore n1 n2) = generateCmpCode setg n1 n2
     codeGenerate (SLess n1 n2) = generateCmpCode setl n1 n2
     codeGenerate (SMoreE n1 n2) = generateCmpCode setge n1 n2
