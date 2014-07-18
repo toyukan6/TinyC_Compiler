@@ -94,8 +94,8 @@ instance CodeGeneration SCVal where
     codeGenerate (SCalFunc i v) =
         let vCodes =
                 map (reverse . (++) (push "eax") . reverse . codeGenerate) . reverse $ v
-            espsub = sub "esp" . show . (*) 4 . toInteger . length $ v
-        in foldr (++) [] [foldr (++) [] vCodes, call . name $ i, espsub]
+            espadd = add "esp" . show . (*) 4 . toInteger . length $ v
+        in foldr (++) [] [foldr (++) [] vCodes, call . name $ i, espadd]
     codeGenerate (SAssign i v) =
         let vCode = codeGenerate v
             assign = mov (memoryAddress "ebp" . address $ i) "eax"
