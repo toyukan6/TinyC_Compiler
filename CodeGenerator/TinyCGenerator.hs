@@ -152,7 +152,9 @@ generateExpCode :: (String -> String -> [Code]) -> SCVal
                                                 -> [Code]
 generateExpCode op n1 (SNumber n) = (codeGenerate n1) ++ (op "eax" . show $ n)
 generateExpCode op n1 (SIdent var) =
-    (codeGenerate n1) ++ (op "eax" . memoryAddress "ebp" . address $ var)
+    if (address var) == 0
+    then (codeGenerate n1) ++ (op "eax" . globalVariable . name $ var)
+    else (codeGenerate n1) ++ (op "eax" . memoryAddress "ebp" . address $ var)
 generateExpCode op n1 n2@(TmpVar var) =
       let code1 = codeGenerate n1
           code2 = codeGenerate n2
