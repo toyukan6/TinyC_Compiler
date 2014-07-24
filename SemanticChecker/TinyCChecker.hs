@@ -254,30 +254,8 @@ makeSCVal gtable css (LessE val1 val2) = makeSCValExpr gtable css val1 val2 SLes
 makeSCVal gtable css (Equal val1 val2) = makeSCValExpr gtable css val1 val2 SEqual
 makeSCVal gtable css (NEqual val1 val2) = makeSCValExpr gtable css val1 val2 SNEqual
 
-makeSCVal gtable css (L_AND val1 val2) = 
-    let (css', val1') = makeSCVal gtable css val1
-        (css'', val2') = makeSCVal gtable css' val2
-        vlist = [val1', val2']
-        errs = lefts vlist
-        vals = rights vlist
-    in if null errs
-       then let (css''', tmp1) = makeTmpVarObj css'' $ vals !! 0
-                (css'''', tmp2) = makeTmpVarObj css''' $ vals !! 1
-                t = (++) (funcName css'''') . (++) "and" . show . tag $ css''''
-            in (css'''', Right $ SL_AND t (TmpVar tmp1) (TmpVar tmp2))
-       else (css'', Left $ foldr (++) [] errs)
-makeSCVal gtable css (L_OR val1 val2) =
-    let (css', val1') = makeSCVal gtable css val1
-        (css'', val2') = makeSCVal gtable css' val2
-        vlist = [val1', val2']
-        errs = lefts vlist
-        vals = rights vlist
-    in if null errs
-       then let (css''', tmp1) = makeTmpVarObj css'' $ vals !! 0
-                (css'''', tmp2) = makeTmpVarObj css''' $ vals !! 1
-                t = (++) (funcName css'''') . (++) "or" . show . tag $ css''''
-            in (css'''', Right $ SL_OR t (vals !! 0) (vals !! 1))
-       else (css'', Left $ foldr (++) [] errs)
+makeSCVal gtable css (L_AND val1 val2) = makeSCValLExpr gtable css val1 val2 SL_AND "and"
+makeSCVal gtable css (L_OR val1 val2) = makeSCValLExpr gtable css val1 val2 SL_OR "or"
 
 makeTmpVarObj :: CollectSValState -> SCVal -> (CollectSValState, VarObj)
 makeTmpVarObj css val =
@@ -301,9 +279,29 @@ makeSCValExpr gtable css cval1 cval2 constructor =
         errs = lefts vlist
         vals = rights vlist
     in if null errs
-       then let (css''', tmp1) = makeTmpVarObj css'' $ vals !! 0
-                (css'''', tmp2) = makeTmpVarObj css''' $ vals !! 1
-            in (css'''', Right $ constructor (TmpVar tmp1) (TmpVar tmp2))
+       then case vals !! 1 of
+              (SNumber _) -> (css'', Right $ constructor (vals !! 0) (vals !! 1))
+              (SIdent _) -> (css'', Right $ constructor (vals !! 0) (vals !! 1))
+              _ -> let (css''', tmp) = makeTmpVarObj css'' $ vals !! 1
+                   in (css''', Right $ constructor (vals !! 0) (TmpVar tmp))
+       else (css'', Left $ foldr (++) [] errs)
+
+makeSCValLExpr :: GlobalSValTable -> CollectSValState
+                                   -> CVal
+                                   -> CVal
+                                   -> (String -> SCVal -> SCVal -> SCVal)
+                                   -> String
+                                   -> (CollectSValState, Either [CompileLog] SCVal)
+makeSCValLExpr gtable css cval1 cval2 constructor tagName = 
+    let (css', val1') = makeSCVal gtable css cval1
+        (css'', val2') = makeSCVal gtable css' cval2
+        vlist = [val1', val2']
+        errs = lefts vlist
+        vals = rights vlist
+    in if null errs
+       then let (css''', tmp) = makeTmpVarObj css'' $ vals !! 0
+                t = (++) (funcName css''') . (++) tagName . show . tag $ css'''
+            in (css''', Right $ constructor t (vals !! 0) (TmpVar tmp))
        else (css'', Left $ foldr (++) [] errs)
 
 makeSStatement :: GlobalSValTable -> CollectSValState
