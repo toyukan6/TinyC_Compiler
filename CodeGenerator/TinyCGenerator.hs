@@ -101,6 +101,10 @@ instance CodeGeneration SCVal where
                      then []
                      else add "esp" . show . (*) 4 . toInteger . length $ v
         in foldr (++) [] [foldr (++) [] vCodes, call . name $ i, espadd]
+    codeGenerate (SAssign i (SNumber n)) =
+        if (address i) == 0
+        then mov (globalVariable . name $ i) . show $ n
+        else mov (memoryAddress "ebp" . address $ i) . show $ n
     codeGenerate (SAssign i v) =
         let vCode = codeGenerate v
             assign = if (address i) == 0
