@@ -299,7 +299,7 @@ makeSCValLExpr gtable css cval1 cval2 constructor tagName =
         errs = lefts vlist
         vals = rights vlist
     in if null errs
-       then let (css''', tmp) = makeTmpVarObj css'' $ vals !! 0
+       then let (css''', tmp) = makeTmpVarObj css'' $ vals !! 1
                 t = (++) (funcName css''') . (++) tagName . show . tag $ css'''
             in (increTag css''', Right $ constructor t (vals !! 0) (TmpVar tmp))
        else (css'', Left $ foldr (++) [] errs)
