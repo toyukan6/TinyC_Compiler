@@ -103,7 +103,7 @@ instance CodeGeneration SCVal where
         in foldr (++) [] [foldr (++) [] vCodes, call . name $ i, espadd]
     codeGenerate (SAssign i (SNumber n)) =
         if (address i) == 0
-        then mov (globalVariable . name $ i) . show $ n
+        then mov ((++) "dword " . globalVariable . name $ i) . show $ n
         else mov ((++) "dword " . memoryAddress "ebp" . address $ i) . show $ n
     codeGenerate (SAssign i v) =
         let vCode = codeGenerate v
