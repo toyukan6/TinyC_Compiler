@@ -239,9 +239,14 @@ makeSCVal gtable css (Assign (Identifier name) val) =
             Left err' -> (css, Left err')
             Right val' -> (css, Right $ SAssign (SIdentifier name a) val')
     where scvals' = snd . makeSCVal gtable css $ val
-
+{-
 makeSCVal gtable css (Minus (Number n)) = makeSCVal gtable css (Number $ -n)
-
+makeSCVal gtable css (Add (Number n1) (Number n2)) = makeSCVal gtable css (Number $ n1 + n2)
+makeSCVal gtable css (Sub (Number n1) (Number n2)) = makeSCVal gtable css (Number $ n1 - n2)
+makeSCVal gtable css (Mul (Number n1) (Number n2)) = makeSCVal gtable css (Number $ n1 * n2)
+makeSCVal gtable css (Div (Number n1) (Number n2)) = makeSCVal gtable css (Number $ n1 `div` n2)
+makeSCVal gtable css (Mod (Number n1) (Number n2)) = makeSCVal gtable css (Number $ n1 `mod` n2)
+-}
 makeSCVal gtable css (Minus val) = makeSCValExpr gtable css val (Number $ -1) SMul
 makeSCVal gtable css (CValList l ls) = makeSCValExpr gtable css l ls SCValList
 makeSCVal gtable css (Add val1 val2) = makeSCValExpr gtable css val1 val2 SAdd
@@ -281,9 +286,10 @@ makeSCValExpr gtable css cval1 cval2 constructor =
         errs = lefts vlist
         vals = rights vlist
     in if null errs
-       then case vals !! 1 of
-              (SNumber _) -> (css'', Right $ constructor (vals !! 0) (vals !! 1))
-              (SIdent _) -> (css'', Right $ constructor (vals !! 0) (vals !! 1))
+       then case (vals !! 0, vals !! 1) of
+              (c1@(SNumber n1), c2@(SNumber n2)) ->
+                  (css'', Right $ SNumber $ constructorToOp (constructor c1 c2) n1 n2)
+              (_, SIdent _) -> (css'', Right $ constructor (vals !! 0) (vals !! 1))
               _ -> let (css''', tmp) = makeTmpVarObj css'' $ vals !! 1
                    in (css''', Right $ constructor (vals !! 0) (TmpVar tmp))
        else (css'', Left $ foldr (++) [] errs)

@@ -53,6 +53,13 @@ data SCVal = SNumber Integer
 	   | SL_OR String SCVal SCVal
            | TmpVar VarObj
 
+constructorToOp :: SCVal -> (Integer -> Integer -> Integer)
+constructorToOp (SAdd _ _) = (+)
+constructorToOp (SSub _ _) = (-)
+constructorToOp (SMul _ _) = (*)
+constructorToOp (SDiv _ _) = div
+constructorToOp (SMod _ _) = mod
+
 tmpVars :: SCVal -> [VarObj]
 tmpVars (TmpVar v) = [v]
 tmpVars (SCValList l ls) = (tmpVars l) ++ (tmpVars ls)
