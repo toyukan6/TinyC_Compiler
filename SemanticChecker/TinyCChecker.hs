@@ -301,7 +301,7 @@ makeSCValLExpr gtable css cval1 cval2 constructor tagName =
     in if null errs
        then let (css''', tmp) = makeTmpVarObj css'' $ vals !! 0
                 t = (++) (funcName css''') . (++) tagName . show . tag $ css'''
-            in (css''', Right $ constructor t (vals !! 0) (TmpVar tmp))
+            in (increTag css''', Right $ constructor t (vals !! 0) (TmpVar tmp))
        else (css'', Left $ foldr (++) [] errs)
 
 makeSStatement :: GlobalSValTable -> CollectSValState
