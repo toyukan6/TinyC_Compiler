@@ -240,12 +240,6 @@ makeSCVal gtable css (Assign (Identifier name) val) =
             Right val' -> (css, Right $ SAssign (SIdentifier name a) val')
     where scvals' = snd . makeSCVal gtable css $ val
 
-makeSCVal gtable css (Add (Number n1) (Number n2)) = makeSCVal gtable css (Number $ n1 + n2)
-makeSCVal gtable css (Sub (Number n1) (Number n2)) = makeSCVal gtable css (Number $ n1 - n2)
-makeSCVal gtable css (Mul (Number n1) (Number n2)) = makeSCVal gtable css (Number $ n1 * n2)
-makeSCVal gtable css (Div (Number n1) (Number n2)) = makeSCVal gtable css (Number $ n1 `div` n2)
-makeSCVal gtable css (Mod (Number n1) (Number n2)) = makeSCVal gtable css (Number $ n1 `mod` n2)
-
 makeSCVal gtable css (Minus val) = makeSCValExpr gtable css val (Number $ -1) SMul
 makeSCVal gtable css (CValList l ls) = makeSCValExpr gtable css l ls SCValList
 makeSCVal gtable css (Add val1 val2) = makeSCValExpr gtable css val1 val2 SAdd
